@@ -1,0 +1,63 @@
+"use client";
+
+import * as React from "react";
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarFooter,
+  SidebarHeader,
+  SidebarRail,
+} from "@/components/ui/sidebar";
+import {
+  LayoutDashboardIcon,
+  UsersIcon,
+  BriefcaseIcon,
+  Building2Icon,
+  MapPinIcon,
+  ShieldIcon,
+  SettingsIcon,
+} from "lucide-react";
+import { AreaSwitcher } from "./area-switcher";
+import { NavMain, type NavItem } from "./nav-main";
+import { NavUser } from "./nav-user";
+
+type Area = { id: number; name: string };
+type SessionUser = { name: string; email: string; isAdmin: boolean };
+
+export function AppSidebar({
+  user,
+  areas,
+  ...props
+}: {
+  user: SessionUser;
+  areas: Area[];
+} & React.ComponentProps<typeof Sidebar>) {
+  const main: NavItem[] = [
+    { title: "Dashboard", href: "/dashboard", icon: LayoutDashboardIcon, preserveArea: true },
+    { title: "Employees", href: "/employees", icon: UsersIcon, preserveArea: true },
+    { title: "Positions", href: "/positions", icon: BriefcaseIcon, preserveArea: true },
+    { title: "Departments", href: "/departments", icon: Building2Icon, preserveArea: true },
+    { title: "Area Settings", href: "/area-settings", icon: SettingsIcon, preserveArea: true },
+  ];
+
+  const admin: NavItem[] = [
+    { title: "Users", href: "/admin/users", icon: ShieldIcon },
+    { title: "Areas", href: "/admin/areas", icon: MapPinIcon },
+  ];
+
+  return (
+    <Sidebar collapsible="offcanvas" {...props}>
+      <SidebarHeader>
+        <AreaSwitcher areas={areas} />
+      </SidebarHeader>
+      <SidebarContent>
+        <NavMain label="Workspace" items={main} />
+        {user.isAdmin && <NavMain label="Admin" items={admin} />}
+      </SidebarContent>
+      <SidebarFooter>
+        <NavUser user={user} />
+      </SidebarFooter>
+      <SidebarRail />
+    </Sidebar>
+  );
+}

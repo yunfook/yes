@@ -14,16 +14,16 @@ import { TextField } from "@/components/form/text-field";
 import { CheckboxField } from "@/components/form/checkbox-field";
 import { DatePicker } from "@/components/form/date-picker";
 import { FormRow } from "@/components/form/form-row";
-import { MultiSelect } from "@/components/ui/multi-select";
 import {
   createEmployee,
   updateEmployee,
   type EmployeeFormConfig,
   type EmployeeRow,
 } from "./actions";
-import { RESTDAY_VALUES, type RestdayValue } from "./restday";
 import { useSalaryStore } from "./salary-store";
 import { SalaryDialogButton } from "./salary-dialog-button";
+import { useWorkingScheduleStore } from "./working-schedule-store";
+import { WorkingScheduleDialogButton } from "./working-schedule-dialog-button";
 import { Label } from "@/components/ui/label";
 import type { SalaryRates } from "@/components/salary-dialog";
 
@@ -46,10 +46,8 @@ const Schema = z.object({
   ic: NullableNonEmpty,
   passport: NullableNonEmpty,
   nationality: z.enum(["local", "international"]).nullable(),
-  restday: z
-    .array(z.enum(RESTDAY_VALUES))
-    .min(1, "Required when checked")
-    .nullable(),
+  contactNumber: NullableNonEmpty,
+  email: z.string().trim().email("Invalid email").nullable(),
 });
 
 type FormValues = z.infer<typeof Schema>;
@@ -73,6 +71,8 @@ export function EmployeeForm({
   const isEdit = !!existing;
   const setSalary = useSalaryStore((s) => s.setSalary);
   const resetSalary = useSalaryStore((s) => s.reset);
+  const setSchedule = useWorkingScheduleStore((s) => s.setSchedule);
+  const resetSchedule = useWorkingScheduleStore((s) => s.reset);
 
   React.useEffect(() => {
     if (existing?.salaryType) {
@@ -81,11 +81,20 @@ export function EmployeeForm({
         hour: existing.salaryHour,
         day: existing.salaryDay,
         month: existing.salaryMonth,
+        other: existing.salaryOther,
       });
     } else {
       resetSalary();
     }
-    return () => resetSalary();
+    if (existing?.restday) {
+      setSchedule({ restday: existing.restday });
+    } else {
+      resetSchedule();
+    }
+    return () => {
+      resetSalary();
+      resetSchedule();
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [existing?.id]);
 
@@ -98,7 +107,8 @@ export function EmployeeForm({
     ic: existing?.ic ?? null,
     passport: existing?.passport ?? null,
     nationality: existing?.nationality ?? null,
-    restday: existing?.restday ?? null,
+    contactNumber: existing?.contactNumber ?? null,
+    email: existing?.email ?? null,
   };
 
   const form = useForm({
@@ -107,7 +117,12 @@ export function EmployeeForm({
     onSubmit: async ({ value }) => {
       try {
         const salary = useSalaryStore.getState().salary;
-        const payload = { ...value, salary };
+        const schedule = useWorkingScheduleStore.getState().schedule;
+        const payload = {
+          ...value,
+          salary,
+          restday: schedule?.restday ?? null,
+        };
         if (isEdit) await updateEmployee(existing!.id, areaId, payload);
         else await createEmployee(areaId, payload);
         toast.success(isEdit ? "Employee updated" : "Employee created");
@@ -222,6 +237,46 @@ export function EmployeeForm({
       </FormRow>
 
       <FormRow>
+        {config.contactNumber && <CheckboxField
+          form={form}
+          name="contactNumber"
+          label="Contact number"
+          defaultEnabledValue=""
+        >
+          {({ value, disabled, onChange, onBlur, inputId }) => (
+            <Input
+              id={inputId}
+              type="tel"
+              placeholder="e.g. +60 12-345 6789"
+              disabled={disabled}
+              value={(value as string | null) ?? ""}
+              onChange={(e) => onChange(e.target.value)}
+              onBlur={onBlur}
+            />
+          )}
+        </CheckboxField>}
+
+        {config.email && <CheckboxField
+          form={form}
+          name="email"
+          label="Email"
+          defaultEnabledValue=""
+        >
+          {({ value, disabled, onChange, onBlur, inputId }) => (
+            <Input
+              id={inputId}
+              type="email"
+              placeholder="e.g. user@example.com"
+              disabled={disabled}
+              value={(value as string | null) ?? ""}
+              onChange={(e) => onChange(e.target.value)}
+              onBlur={onBlur}
+            />
+          )}
+        </CheckboxField>}
+      </FormRow>
+
+      <FormRow>
         {config.positions && <CheckboxField
           form={form}
           name="positionId"
@@ -269,47 +324,17 @@ export function EmployeeForm({
         </CheckboxField>}
       </FormRow>
 
-      {config.restday && <CheckboxField
-        form={form}
-        name="restday"
-        label="Rest day"
-        defaultEnabledValue={[] as RestdayValue[]}
-      >
-        {({ value, disabled, onChange, inputId }) => {
-          const selected = (value as RestdayValue[] | null) ?? [];
-          const hasNone = selected.includes("none");
-          const items: { value: RestdayValue; label: string; disabled?: boolean }[] = [
-            { value: "none", label: "No Restday" },
-            { value: "monday", label: "Monday", disabled: hasNone },
-            { value: "tuesday", label: "Tuesday", disabled: hasNone },
-            { value: "wednesday", label: "Wednesday", disabled: hasNone },
-            { value: "thursday", label: "Thursday", disabled: hasNone },
-            { value: "friday", label: "Friday", disabled: hasNone },
-            { value: "saturday", label: "Saturday", disabled: hasNone },
-            { value: "sunday", label: "Sunday", disabled: hasNone },
-          ];
-          return (
-            <MultiSelect<RestdayValue>
-              id={inputId}
-              disabled={disabled}
-              items={items}
-              value={selected}
-              onValueChange={(next) => {
-                const justAddedNone =
-                  next.includes("none") && !selected.includes("none");
-                onChange(justAddedNone ? ["none"] : next);
-              }}
-              placeholder="Pick rest days"
-              emptyMessage="No matching options."
-            />
-          );
-        }}
-      </CheckboxField>}
+      <FormRow>
+        <div className="flex items-center gap-3">
+          <Label className="shrink-0">Salary Information</Label>
+          <SalaryDialogButton rates={rates} />
+        </div>
+      </FormRow>
 
       <FormRow>
-        <div className="flex flex-col gap-1.5">
-          <Label>Salary Information</Label>
-          <SalaryDialogButton rates={rates} />
+        <div className="flex items-center gap-3">
+          <Label className="shrink-0">Working Schedule</Label>
+          <WorkingScheduleDialogButton />
         </div>
       </FormRow>
 

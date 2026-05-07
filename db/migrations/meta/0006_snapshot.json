@@ -1,0 +1,735 @@
+{
+  "id": "eaaa79a2-592d-4f8b-b39e-1cb90d7c7775",
+  "prevId": "4f15b67d-5658-40ef-a1e7-1e19258ef857",
+  "version": "7",
+  "dialect": "postgresql",
+  "tables": {
+    "public.area_setting": {
+      "name": "area_setting",
+      "schema": "",
+      "columns": {
+        "area_id": {
+          "name": "area_id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "ot_rate": {
+          "name": "ot_rate",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 1.5
+        },
+        "rd_rate": {
+          "name": "rd_rate",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 2
+        },
+        "ph_rate": {
+          "name": "ph_rate",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 3
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "area_setting_area_id_areas_id_fk": {
+          "name": "area_setting_area_id_areas_id_fk",
+          "tableFrom": "area_setting",
+          "tableTo": "areas",
+          "columnsFrom": [
+            "area_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.areas": {
+      "name": "areas",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.departments": {
+      "name": "departments",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "area_id": {
+          "name": "area_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "departments_area_id_areas_id_fk": {
+          "name": "departments_area_id_areas_id_fk",
+          "tableFrom": "departments",
+          "tableTo": "areas",
+          "columnsFrom": [
+            "area_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.employee_form": {
+      "name": "employee_form",
+      "schema": "",
+      "columns": {
+        "area_id": {
+          "name": "area_id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "dob": {
+          "name": "dob",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "gender": {
+          "name": "gender",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "positions": {
+          "name": "positions",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "nationality": {
+          "name": "nationality",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "ic": {
+          "name": "ic",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "passport": {
+          "name": "passport",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "departments": {
+          "name": "departments",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "contact_number": {
+          "name": "contact_number",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "email": {
+          "name": "email",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "employee_form_area_id_areas_id_fk": {
+          "name": "employee_form_area_id_areas_id_fk",
+          "tableFrom": "employee_form",
+          "tableTo": "areas",
+          "columnsFrom": [
+            "area_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.employees": {
+      "name": "employees",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "dob": {
+          "name": "dob",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "gender": {
+          "name": "gender",
+          "type": "gender",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "position_id": {
+          "name": "position_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "department_id": {
+          "name": "department_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "ic": {
+          "name": "ic",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "passport": {
+          "name": "passport",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "nationality": {
+          "name": "nationality",
+          "type": "nationality",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "contact_number": {
+          "name": "contact_number",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "email": {
+          "name": "email",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "restday": {
+          "name": "restday",
+          "type": "text[]",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "salary_type": {
+          "name": "salary_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "salary_hour": {
+          "name": "salary_hour",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "salary_day": {
+          "name": "salary_day",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "salary_month": {
+          "name": "salary_month",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "salary_other": {
+          "name": "salary_other",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "break_type": {
+          "name": "break_type",
+          "type": "break_type",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "monday_start": {
+          "name": "monday_start",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "monday_end": {
+          "name": "monday_end",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "monday_break": {
+          "name": "monday_break",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "tuesday_start": {
+          "name": "tuesday_start",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "tuesday_end": {
+          "name": "tuesday_end",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "tuesday_break": {
+          "name": "tuesday_break",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "wednesday_start": {
+          "name": "wednesday_start",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "wednesday_end": {
+          "name": "wednesday_end",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "wednesday_break": {
+          "name": "wednesday_break",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "thursday_start": {
+          "name": "thursday_start",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "thursday_end": {
+          "name": "thursday_end",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "thursday_break": {
+          "name": "thursday_break",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "friday_start": {
+          "name": "friday_start",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "friday_end": {
+          "name": "friday_end",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "friday_break": {
+          "name": "friday_break",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "saturday_start": {
+          "name": "saturday_start",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "saturday_end": {
+          "name": "saturday_end",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "saturday_break": {
+          "name": "saturday_break",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "sunday_start": {
+          "name": "sunday_start",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "sunday_end": {
+          "name": "sunday_end",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "sunday_break": {
+          "name": "sunday_break",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "employees_position_id_positions_id_fk": {
+          "name": "employees_position_id_positions_id_fk",
+          "tableFrom": "employees",
+          "tableTo": "positions",
+          "columnsFrom": [
+            "position_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "employees_department_id_departments_id_fk": {
+          "name": "employees_department_id_departments_id_fk",
+          "tableFrom": "employees",
+          "tableTo": "departments",
+          "columnsFrom": [
+            "department_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.positions": {
+      "name": "positions",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "area_id": {
+          "name": "area_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "positions_area_id_areas_id_fk": {
+          "name": "positions_area_id_areas_id_fk",
+          "tableFrom": "positions",
+          "tableTo": "areas",
+          "columnsFrom": [
+            "area_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.user_areas": {
+      "name": "user_areas",
+      "schema": "",
+      "columns": {
+        "user_id": {
+          "name": "user_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "area_id": {
+          "name": "area_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "user_areas_user_id_users_id_fk": {
+          "name": "user_areas_user_id_users_id_fk",
+          "tableFrom": "user_areas",
+          "tableTo": "users",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "user_areas_area_id_areas_id_fk": {
+          "name": "user_areas_area_id_areas_id_fk",
+          "tableFrom": "user_areas",
+          "tableTo": "areas",
+          "columnsFrom": [
+            "area_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "user_areas_user_id_area_id_pk": {
+          "name": "user_areas_user_id_area_id_pk",
+          "columns": [
+            "user_id",
+            "area_id"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.users": {
+      "name": "users",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "email": {
+          "name": "email",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "password_hash": {
+          "name": "password_hash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "is_admin": {
+          "name": "is_admin",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "users_email_unique": {
+          "name": "users_email_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "email"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    }
+  },
+  "enums": {
+    "public.break_type": {
+      "name": "break_type",
+      "schema": "public",
+      "values": [
+        "30m",
+        "1h",
+        "2h",
+        "none"
+      ]
+    },
+    "public.gender": {
+      "name": "gender",
+      "schema": "public",
+      "values": [
+        "male",
+        "female"
+      ]
+    },
+    "public.nationality": {
+      "name": "nationality",
+      "schema": "public",
+      "values": [
+        "local",
+        "international"
+      ]
+    }
+  },
+  "schemas": {},
+  "sequences": {},
+  "roles": {},
+  "policies": {},
+  "views": {},
+  "_meta": {
+    "columns": {},
+    "schemas": {},
+    "tables": {}
+  }
+}

@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { CoinsIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SalaryDialog, type SalaryRates } from "@/components/salary-dialog";
 import { useSalaryStore } from "./salary-store";
@@ -21,20 +22,18 @@ export function SalaryDialogButton({ rates }: { rates: SalaryRates }) {
   const salary = useSalaryStore((s) => s.salary);
   const setSalary = useSalaryStore((s) => s.setSalary);
 
-  const summary =
-    !salary ||
-    (salary.hour === null && salary.day === null && salary.month === null)
-      ? "Set salary"
-      : `${TYPE_LABEL[salary.type] ?? salary.type} · ${format(salary.hour)}/h · ${format(salary.day)}/d · ${format(salary.month)}/m`;
+  const summary = !salary
+    ? "Set salary"
+    : salary.type === "other"
+      ? `${TYPE_LABEL.other} · ${salary.other ?? "—"}`
+      : salary.hour === null && salary.day === null && salary.month === null
+        ? "Set salary"
+        : `${TYPE_LABEL[salary.type] ?? salary.type} · ${format(salary.hour)}/h · ${format(salary.day)}/d · ${format(salary.month)}/m`;
 
   return (
     <>
-      <Button
-        type="button"
-        variant="outline"
-        className="w-full justify-start font-normal"
-        onClick={() => setOpen(true)}
-      >
+      <Button type="button" onClick={() => setOpen(true)}>
+        <CoinsIcon />
         {summary}
       </Button>
       <SalaryDialog

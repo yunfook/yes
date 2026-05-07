@@ -43,6 +43,13 @@
       "when": 1778124779011,
       "tag": "0005_broken_franklin_richards",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1778175123838,
+      "tag": "0006_famous_forge",
+      "breakpoints": true
     }
   ]
 }

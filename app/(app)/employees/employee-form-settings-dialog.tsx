@@ -24,12 +24,13 @@ import {
 const FIELDS: { key: keyof EmployeeFormConfig; label: string }[] = [
   { key: "dob", label: "Date of birth" },
   { key: "gender", label: "Gender" },
+  { key: "contactNumber", label: "Contact number" },
+  { key: "email", label: "Email" },
   { key: "positions", label: "Position" },
   { key: "departments", label: "Department" },
   { key: "nationality", label: "Nationality" },
   { key: "ic", label: "Identity Card" },
   { key: "passport", label: "Passport" },
-  { key: "restday", label: "Rest day" },
 ];
 
 export function EmployeeFormSettingsDialog({

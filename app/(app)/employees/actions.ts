@@ -23,6 +23,7 @@ const SalarySchema = z
     hour: z.number().nonnegative().nullable(),
     day: z.number().nonnegative().nullable(),
     month: z.number().nonnegative().nullable(),
+    other: z.string().trim().min(1).nullable(),
   })
   .nullable();
 
@@ -35,6 +36,8 @@ const Schema = z.object({
   ic: NullishStr,
   passport: NullishStr,
   nationality: z.enum(["local", "international"]).nullable(),
+  contactNumber: NullishStr,
+  email: NullishStr,
   restday: z.array(z.enum(RESTDAY_VALUES)).min(1).nullable(),
   salary: SalarySchema,
 });
@@ -53,11 +56,14 @@ export type EmployeeRow = {
   ic: string | null;
   passport: string | null;
   nationality: "local" | "international" | null;
+  contactNumber: string | null;
+  email: string | null;
   restday: RestdayValue[] | null;
   salaryType: "hour" | "monthly" | "other" | null;
   salaryHour: number | null;
   salaryDay: number | null;
   salaryMonth: number | null;
+  salaryOther: string | null;
 };
 
 export async function listEmployeesByArea(areaId: number): Promise<EmployeeRow[]> {
@@ -77,7 +83,14 @@ export async function listEmployeesByArea(areaId: number): Promise<EmployeeRow[]
       ic: employees.ic,
       passport: employees.passport,
       nationality: employees.nationality,
+      contactNumber: employees.contactNumber,
+      email: employees.email,
       restday: employees.restday,
+      salaryType: employees.salaryType,
+      salaryHour: employees.salaryHour,
+      salaryDay: employees.salaryDay,
+      salaryMonth: employees.salaryMonth,
+      salaryOther: employees.salaryOther,
     })
     .from(employees)
     .innerJoin(positions, eq(positions.id, employees.positionId))
@@ -132,11 +145,14 @@ export async function createEmployee(
     ic: data.ic,
     passport: data.passport,
     nationality: data.nationality,
+    contactNumber: data.contactNumber,
+    email: data.email,
     restday: data.restday,
     salaryType: data.salary?.type ?? null,
     salaryHour: data.salary?.hour ?? null,
     salaryDay: data.salary?.day ?? null,
     salaryMonth: data.salary?.month ?? null,
+    salaryOther: data.salary?.other ?? null,
   });
   revalidatePath("/employees");
   revalidatePath(`/employees`);
@@ -179,11 +195,14 @@ export async function updateEmployee(
       ic: data.ic,
       passport: data.passport,
       nationality: data.nationality,
+      contactNumber: data.contactNumber,
+      email: data.email,
       restday: data.restday,
       salaryType: data.salary?.type ?? null,
       salaryHour: data.salary?.hour ?? null,
       salaryDay: data.salary?.day ?? null,
       salaryMonth: data.salary?.month ?? null,
+      salaryOther: data.salary?.other ?? null,
     })
     .where(eq(employees.id, id));
   revalidatePath("/employees");
@@ -245,7 +264,8 @@ export type EmployeeFormConfig = {
   nationality: boolean;
   ic: boolean;
   passport: boolean;
-  restday: boolean;
+  contactNumber: boolean;
+  email: boolean;
 };
 
 const EmployeeFormConfigSchema = z.object({
@@ -256,7 +276,8 @@ const EmployeeFormConfigSchema = z.object({
   nationality: z.boolean(),
   ic: z.boolean(),
   passport: z.boolean(),
-  restday: z.boolean(),
+  contactNumber: z.boolean(),
+  email: z.boolean(),
 });
 
 export async function updateEmployeeFormConfig(
@@ -286,7 +307,8 @@ export async function getEmployeeFormConfig(
       nationality: employeeForm.nationality,
       ic: employeeForm.ic,
       passport: employeeForm.passport,
-      restday: employeeForm.restday,
+      contactNumber: employeeForm.contactNumber,
+      email: employeeForm.email,
     })
     .from(employeeForm)
     .where(eq(employeeForm.areaId, areaId))
@@ -300,7 +322,8 @@ export async function getEmployeeFormConfig(
       nationality: false,
       ic: false,
       passport: false,
-      restday: false,
+      contactNumber: false,
+      email: false,
     }
   );
 }

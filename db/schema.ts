@@ -14,6 +14,7 @@ import { relations } from "drizzle-orm";
 
 export const nationalityEnum = pgEnum("nationality", ["local", "international"]);
 export const genderEnum = pgEnum("gender", ["male", "female"]);
+export const breakTypeEnum = pgEnum("break_type", ["30m", "1h", "2h", "none"]);
 
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
@@ -61,6 +62,7 @@ export const departments = pgTable("departments", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
+
 export const areaSetting = pgTable("area_setting", {
   areaId: integer("area_id")
     .primaryKey()
@@ -80,8 +82,9 @@ export const employeeForm = pgTable("employee_form", {
   nationality: boolean("nationality").notNull().default(false),
   ic: boolean("ic").notNull().default(false),
   passport: boolean("passport").notNull().default(false),
-  restday: boolean("restday").notNull().default(false),
   departments: boolean("departments").notNull().default(false),
+  contactNumber: boolean("contact_number").notNull().default(false),
+  email: boolean("email").notNull().default(false),
 });
 
 export const employees = pgTable("employees", {
@@ -98,11 +101,36 @@ export const employees = pgTable("employees", {
   ic: text("ic"),
   passport: text("passport"),
   nationality: nationalityEnum("nationality"),
+  contactNumber: text("contact_number"),
+  email: text("email"),
   restday: text("restday").array(),
   salaryType: text("salary_type"),
   salaryHour: real("salary_hour"),
   salaryDay: real("salary_day"),
   salaryMonth: real("salary_month"),
+  salaryOther: text("salary_other"),
+  breakType: breakTypeEnum("break_type"),
+  mondayStart: text("monday_start"),
+  mondayEnd: text("monday_end"),
+  mondayBreak: text("monday_break"),
+  tuesdayStart: text("tuesday_start"),
+  tuesdayEnd: text("tuesday_end"),
+  tuesdayBreak: text("tuesday_break"),
+  wednesdayStart: text("wednesday_start"),
+  wednesdayEnd: text("wednesday_end"),
+  wednesdayBreak: text("wednesday_break"),
+  thursdayStart: text("thursday_start"),
+  thursdayEnd: text("thursday_end"),
+  thursdayBreak: text("thursday_break"),
+  fridayStart: text("friday_start"),
+  fridayEnd: text("friday_end"),
+  fridayBreak: text("friday_break"),
+  saturdayStart: text("saturday_start"),
+  saturdayEnd: text("saturday_end"),
+  saturdayBreak: text("saturday_break"),
+  sundayStart: text("sunday_start"),
+  sundayEnd: text("sunday_end"),
+  sundayBreak: text("sunday_break"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 

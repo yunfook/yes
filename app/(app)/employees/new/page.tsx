@@ -52,11 +52,12 @@ export default async function NewEmployeePage({
         <Button
           variant="ghost"
           size="sm"
+          className="text-primary"
           render={<Link href={`/employees?area=${currentAreaId}`} />}
         >
           <ArrowLeftIcon className="size-4" /> Back
         </Button>
-        <h1 className="text-lg font-semibold">Create New User</h1>
+        <h1 className="text-lg font-semibold text-primary">Create New User</h1>
         <EmployeeFormSettingsDialog areaId={currentAreaId} config={config} />
       </div>
       <Card>

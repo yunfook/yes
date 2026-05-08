@@ -3,6 +3,7 @@ import { and, eq, isNull } from "drizzle-orm";
 import { notFound } from "next/navigation";
 import { ArrowLeftIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import { db } from "@/db";
 import {
   employees,
@@ -123,6 +124,8 @@ export default async function EditEmployeePage({
           Untick a field to clear it.
         </p>
       </div>
+      <Card>
+        <CardContent>
       <EmployeeForm
         areaId={areaId}
         positions={positions}
@@ -183,6 +186,8 @@ export default async function EditEmployeePage({
           hasHoliday: row.hasHoliday,
         }}
       />
+        </CardContent>
+      </Card>
     </div>
   );
 }

@@ -1,4 +1,4 @@
-import { and, eq, isNull } from "drizzle-orm";
+import { and, eq, isNull, sql } from "drizzle-orm";
 import { BriefcaseIcon, Building2Icon, UsersIcon } from "lucide-react";
 import {
   Card,
@@ -52,8 +52,8 @@ function StatCard({
         </CardTitle>
         <Icon className="size-4 text-muted-foreground" />
       </CardHeader>
-      <CardContent>
-        <div className="text-3xl font-semibold">{value}</div>
+      <CardContent className="text-muted-foreground">
+        <div className="text-3xl font-semibold text-primary">{value}</div>
       </CardContent>
     </Card>
   );
@@ -93,8 +93,9 @@ export default async function DashboardPage({
         nationality: employees.nationality,
         positionName: positions.name,
         departmentName: departments.name,
-        salaryType: employees.salaryType,
-        otherSalaryTypeName: otherSalaryType.name,
+        salaryTypeLabel: sql<
+          string | null
+        >`CASE WHEN ${employees.salaryType} = 'other' THEN ${otherSalaryType.name} ELSE ${employees.salaryType} END`,
         restday: employees.restday,
       })
       .from(employees)
@@ -144,12 +145,8 @@ export default async function DashboardPage({
     positionMap[p] = (positionMap[p] ?? 0) + 1;
     const d = e.departmentName ?? "Unassigned";
     departmentMap[d] = (departmentMap[d] ?? 0) + 1;
-    if (e.salaryType === "other") {
-      const key = e.otherSalaryTypeName ?? "Other";
-      salaryType[key] = (salaryType[key] ?? 0) + 1;
-    } else {
-      salaryType[e.salaryType ?? "Not set"]++;
-    }
+    const key = e.salaryTypeLabel ?? "Not set";
+    salaryType[key] = (salaryType[key] ?? 0) + 1;
   }
 
   const restdayData = WEEKDAYS.map((day) => {
@@ -185,7 +182,7 @@ export default async function DashboardPage({
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <h1 className="text-2xl font-semibold">
+        <h1 className="text-2xl font-semibold text-foreground">
           Dashboard - {areaRow?.name ?? "—"}
         </h1>
         <p className="text-sm text-muted-foreground">

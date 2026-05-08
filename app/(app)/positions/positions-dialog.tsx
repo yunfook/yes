@@ -122,7 +122,7 @@ export function PositionsDialog({
           {items === null ? (
             <div className="py-6 text-sm text-muted-foreground">Loading…</div>
           ) : (
-            <div className="rounded-md border">
+            <div className="max-h-[60vh] overflow-y-auto rounded-md border">
               <Table>
                 <TableHeader>
                   <TableRow>

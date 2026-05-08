@@ -54,7 +54,9 @@ export function AreaSettingDialog({
           </DialogDescription>
         </DialogHeader>
         {initial ? (
-          <AreaSettingForm areaId={areaId} initial={initial} />
+          <div className="max-h-[60vh] overflow-y-auto rounded-md border">
+            <AreaSettingForm areaId={areaId} initial={initial} />
+          </div>
         ) : (
           <div className="py-6 text-sm text-muted-foreground">Loading…</div>
         )}

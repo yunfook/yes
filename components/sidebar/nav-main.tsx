@@ -35,7 +35,7 @@ export function NavMain({
   return (
     <SidebarGroup>
       <SidebarGroupLabel>{label}</SidebarGroupLabel>
-      <SidebarMenu>
+      <SidebarMenu className="gap-2">
         {items.map((item) => {
           const href =
             item.preserveArea && area

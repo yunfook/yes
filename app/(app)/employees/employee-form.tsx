@@ -28,6 +28,58 @@ import {
   type EmployeeDraftValues,
 } from "./employee-draft-store";
 import { Label } from "@/components/ui/label";
+
+function LeaveInput({
+  value,
+  disabled,
+  onChange,
+  onBlur,
+  inputId,
+}: {
+  value: unknown;
+  disabled: boolean;
+  onChange: (next: unknown) => void;
+  onBlur: () => void;
+  inputId: string;
+}) {
+  const numericValue =
+    typeof value === "number" && Number.isFinite(value) ? value : null;
+  const [text, setText] = React.useState(
+    numericValue === null || numericValue === 0 ? "" : String(numericValue),
+  );
+  React.useEffect(() => {
+    if (numericValue === null) {
+      setText("");
+      return;
+    }
+    if (numericValue === 0) return;
+    if (Number(text) !== numericValue) setText(String(numericValue));
+  }, [numericValue, text]);
+
+  return (
+    <Input
+      id={inputId}
+      type="number"
+      inputMode="numeric"
+      min={0}
+      step={1}
+      disabled={disabled}
+      value={text}
+      onChange={(e) => {
+        const raw = e.target.value;
+        setText(raw);
+        if (raw === "") {
+          onChange(0);
+          return;
+        }
+        const n = Number(raw);
+        onChange(Number.isFinite(n) ? Math.trunc(n) : 0);
+      }}
+      onBlur={onBlur}
+      clearable
+    />
+  );
+}
 import { PlusIcon } from "lucide-react";
 import type { SalaryRates } from "@/components/salary-dialog";
 import type { DaySchedule } from "@/components/working-schedule-dialog";
@@ -479,29 +531,12 @@ export function EmployeeForm({
           defaultEnabledValue={0}
         >
           {({ value, disabled, onChange, onBlur, inputId }) => (
-            <Input
-              id={inputId}
-              type="number"
-              inputMode="numeric"
-              min={0}
-              step={1}
+            <LeaveInput
+              inputId={inputId}
+              value={value}
               disabled={disabled}
-              value={
-                typeof value === "number" && Number.isFinite(value)
-                  ? String(value)
-                  : ""
-              }
-              onChange={(e) => {
-                const raw = e.target.value;
-                if (raw === "") {
-                  onChange(null);
-                  return;
-                }
-                const n = Number(raw);
-                onChange(Number.isFinite(n) ? Math.trunc(n) : null);
-              }}
+              onChange={onChange}
               onBlur={onBlur}
-              clearable
             />
           )}
         </CheckboxField>}
@@ -513,29 +548,12 @@ export function EmployeeForm({
           defaultEnabledValue={0}
         >
           {({ value, disabled, onChange, onBlur, inputId }) => (
-            <Input
-              id={inputId}
-              type="number"
-              inputMode="numeric"
-              min={0}
-              step={1}
+            <LeaveInput
+              inputId={inputId}
+              value={value}
               disabled={disabled}
-              value={
-                typeof value === "number" && Number.isFinite(value)
-                  ? String(value)
-                  : ""
-              }
-              onChange={(e) => {
-                const raw = e.target.value;
-                if (raw === "") {
-                  onChange(null);
-                  return;
-                }
-                const n = Number(raw);
-                onChange(Number.isFinite(n) ? Math.trunc(n) : null);
-              }}
+              onChange={onChange}
               onBlur={onBlur}
-              clearable
             />
           )}
         </CheckboxField>}
@@ -559,16 +577,16 @@ export function EmployeeForm({
         </div>
       </FormRow>
 
-      <div className="flex items-center gap-2 pt-2">
+      <div className="flex items-center justify-end gap-2 pt-2">
+        <Button type="button" variant="outline" onClick={handleClear}>
+          Clear form
+        </Button>
         <Button type="submit" disabled={form.state.isSubmitting}>
           {form.state.isSubmitting
             ? "Saving…"
             : isEdit
               ? "Save changes"
               : "Create employee"}
-        </Button>
-        <Button type="button" variant="outline" onClick={handleClear}>
-          Clear form
         </Button>
       </div>
 

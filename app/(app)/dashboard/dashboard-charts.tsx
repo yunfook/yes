@@ -57,15 +57,14 @@ const RESTDAY_LABELS: Record<string, string> = {
 };
 
 const SALARY_LABELS: Record<string, string> = {
-  hour: "Hour",
-  monthly: "Monthly",
-  other: "Other",
+  hour: "Hour rate",
+  monthly: "Monthly paid",
   "Not set": "Not set",
 };
 
 function EmptyState() {
   return (
-    <div className="flex h-[220px] items-center justify-center text-sm text-muted-foreground">
+    <div className="flex h-[220px] items-center justify-center text-sm text-primary">
       No data
     </div>
   );
@@ -86,7 +85,7 @@ function BarChartCard({
   }));
   const total = data.reduce((sum, d) => sum + d.count, 0);
   const config: ChartConfig = {
-    count: { label: "Employees", color: "var(--foreground)" },
+    count: { label: "Employees", color: "var(--primary)" },
   };
   return (
     <Card>
@@ -162,11 +161,14 @@ function PieChartCard({ title, data }: { title: string; data: ChartDatum[] }) {
         {data.length === 0 ? (
           <EmptyState />
         ) : (
-          <ChartContainer config={config} className="h-[260px] w-full">
+          <ChartContainer
+            config={config}
+            className="h-[260px] w-full [&_.recharts-pie-label-line]:stroke-primary [&_.recharts-pie-label-text]:fill-primary"
+          >
             <PieChart>
               <ChartTooltip
                 cursor={false}
-                content={<ChartTooltipContent hideLabel />}
+                content={<ChartTooltipContent hideLabel className="text-primary" />}
               />
               <Pie
                 data={data}

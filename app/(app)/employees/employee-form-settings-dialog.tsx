@@ -68,7 +68,7 @@ export function EmployeeFormSettingsDialog({
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger
         render={
-          <Button variant="ghost" size="icon" aria-label="Form field settings">
+          <Button variant="ghost" size="icon" className="text-primary" aria-label="Form field settings">
             <SettingsIcon className="size-4" />
           </Button>
         }

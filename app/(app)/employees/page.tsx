@@ -37,7 +37,7 @@ export default async function EmployeesPage({
   return (
     <div className="flex flex-col gap-4">
       <div>
-        <h1 className="text-2xl font-semibold">
+        <h1 className="text-2xl font-semibold text-foreground">
           Employees - {areaRow?.name ?? "—"}
         </h1>
         <p className="text-sm text-muted-foreground">

@@ -28,7 +28,7 @@ export default async function AppLayout({
           }}
           areas={areas.map((a) => ({ id: a.id, name: a.name }))}
         />
-        <SidebarInset>
+        <SidebarInset className="bg-muted/50">
           <header className="flex h-14 shrink-0 items-center gap-2 border-b px-4 md:hidden">
             <SidebarTrigger className="-ml-1" />
             <Separator
@@ -39,7 +39,7 @@ export default async function AppLayout({
           </header>
           <main className="flex flex-1 flex-col gap-4 p-4">{children}</main>
         </SidebarInset>
-        <Toaster richColors closeButton />
+        <Toaster />
       </SidebarProvider>
     </QueryProvider>
   );

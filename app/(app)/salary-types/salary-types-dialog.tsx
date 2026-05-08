@@ -123,7 +123,7 @@ export function SalaryTypesDialog({
           {items === null ? (
             <div className="py-6 text-sm text-muted-foreground">Loading…</div>
           ) : (
-            <div className="rounded-md border">
+            <div className="max-h-[60vh] overflow-y-auto rounded-md border">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -134,7 +134,7 @@ export function SalaryTypesDialog({
                 </TableHeader>
                 <TableBody>
                   {items.length === 0 && (
-                    <TableRow>
+                    <TableRow className="h-12">
                       <TableCell
                         colSpan={3}
                         className="text-center text-muted-foreground"
@@ -146,7 +146,7 @@ export function SalaryTypesDialog({
                   {items.map((s) => {
                     if (s.builtIn) {
                       return (
-                        <TableRow key={`builtin-${s.name}`}>
+                        <TableRow key={`builtin-${s.name}`} className="h-12">
                           <TableCell className="font-medium">{s.name}</TableCell>
                           <TableCell className="text-right">
                             {s.employeeCount}
@@ -160,7 +160,7 @@ export function SalaryTypesDialog({
                     const isSaving = savingId === id;
                     const item = { id, name: s.name };
                     return (
-                      <TableRow key={id}>
+                      <TableRow key={id} className="h-12">
                         <TableCell className="font-medium">
                           {isEditing ? (
                             <Input

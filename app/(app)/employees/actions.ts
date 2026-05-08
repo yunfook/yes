@@ -32,16 +32,14 @@ const SalarySchema = z
   })
   .nullable();
 
-const DAY_KEYS = [
-  "monday",
-  "tuesday",
-  "wednesday",
-  "thursday",
-  "friday",
-  "saturday",
-  "sunday",
-] as const;
-type DayKey = (typeof DAY_KEYS)[number];
+type DayKey =
+  | "monday"
+  | "tuesday"
+  | "wednesday"
+  | "thursday"
+  | "friday"
+  | "saturday"
+  | "sunday";
 
 const DayScheduleSchema = z.object({
   workStart: z.string().regex(/^\d{2}:\d{2}$/),
@@ -269,6 +267,22 @@ export async function createEmployee(
   if (data.departmentId !== null) {
     await assertDepartmentInArea(data.departmentId, areaId);
   }
+
+  const [duplicate] = await db
+    .select({ id: employees.id })
+    .from(employees)
+    .where(
+      and(
+        eq(employees.name, data.name),
+        eq(employees.areaId, areaId),
+        isNull(employees.deletedAt),
+      ),
+    )
+    .limit(1);
+  if (duplicate) {
+    throw new Error("An employee with this name already exists in this area");
+  }
+
   await db.insert(employees).values({
     areaId,
     name: data.name,
@@ -281,8 +295,8 @@ export async function createEmployee(
     nationality: data.nationality,
     contactNumber: data.contactNumber,
     email: data.email,
-    totalAnnualLeave: data.totalAnnualLeave,
-    totalSickLeave: data.totalSickLeave,
+    totalAnnualLeave: data.totalAnnualLeave || null,
+    totalSickLeave: data.totalSickLeave || null,
     ...scheduleColumns(data.schedule),
     salaryType: data.salary?.type ?? null,
     salaryHour: data.salary?.hour ?? null,
@@ -295,7 +309,7 @@ export async function createEmployee(
     hasHoliday: data.salary?.hasHoliday ?? null,
   });
   revalidatePath("/employees");
-  revalidatePath(`/employees`);
+  revalidatePath("/dashboard");
 }
 
 export async function updateEmployee(
@@ -323,6 +337,21 @@ export async function updateEmployee(
     throw new Error("Employee does not belong to this area");
   }
 
+  const [duplicate] = await db
+    .select({ id: employees.id })
+    .from(employees)
+    .where(
+      and(
+        eq(employees.name, data.name),
+        eq(employees.areaId, areaId),
+        isNull(employees.deletedAt),
+      ),
+    )
+    .limit(1);
+  if (duplicate && duplicate.id !== id) {
+    throw new Error("An employee with this name already exists in this area");
+  }
+
   await db
     .update(employees)
     .set({
@@ -337,8 +366,8 @@ export async function updateEmployee(
       nationality: data.nationality,
       contactNumber: data.contactNumber,
       email: data.email,
-      totalAnnualLeave: data.totalAnnualLeave,
-      totalSickLeave: data.totalSickLeave,
+      totalAnnualLeave: data.totalAnnualLeave || null,
+      totalSickLeave: data.totalSickLeave || null,
       ...scheduleColumns(data.schedule),
       salaryType: data.salary?.type ?? null,
       salaryHour: data.salary?.hour ?? null,
@@ -353,6 +382,7 @@ export async function updateEmployee(
     .where(eq(employees.id, id));
   revalidatePath("/employees");
   revalidatePath(`/employees/${id}`);
+  revalidatePath("/dashboard");
 }
 
 export async function deleteEmployee(id: number, areaId: number) {
@@ -363,6 +393,7 @@ export async function deleteEmployee(id: number, areaId: number) {
     .set({ deletedAt: new Date() })
     .where(and(eq(employees.id, id), eq(employees.areaId, areaId)));
   revalidatePath("/employees");
+  revalidatePath("/dashboard");
 }
 
 export async function listPositionsByArea(areaId: number) {

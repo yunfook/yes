@@ -33,11 +33,20 @@ export const RESTDAY_VALUES = [
 ] as const;
 export type RestdayValue = (typeof RESTDAY_VALUES)[number];
 
-export type WorkingScheduleValue = {
-  restday: RestdayValue[] | null;
+export type BreakType = "30m" | "1h" | "2h" | "none";
+
+export type DaySchedule = {
+  workStart: string;
+  workEnd: string;
+  breakStart: string;
+  breakEnabled: boolean;
 };
 
-const EMPTY: WorkingScheduleValue = { restday: null };
+export type WorkingScheduleValue = {
+  restday: RestdayValue[];
+  breakType: BreakType;
+  days: Record<DayKey, DaySchedule>;
+};
 
 const ALL_DAYS: DayKey[] = [
   "monday",
@@ -49,6 +58,15 @@ const ALL_DAYS: DayKey[] = [
   "sunday",
 ];
 
+function buildDefaultDays(
+  wStart: string,
+  wEnd: string,
+): Record<DayKey, DaySchedule> {
+  return Object.fromEntries(
+    ALL_DAYS.map((d) => [d, buildDay(wStart, wEnd)]),
+  ) as Record<DayKey, DaySchedule>;
+}
+
 const DAY_LABEL: Record<DayKey, string> = {
   monday: "Monday",
   tuesday: "Tuesday",
@@ -59,21 +77,14 @@ const DAY_LABEL: Record<DayKey, string> = {
   sunday: "Sunday",
 };
 
-type BreakType = "30m" | "1h" | "2h" | "none";
-
-type DaySchedule = {
-  workStart: string;
-  workEnd: string;
-  breakStart: string;
-  breakEnabled: boolean;
-};
-
-const DEFAULT_DAY: DaySchedule = {
-  workStart: "07:00",
-  workEnd: "16:00",
-  breakStart: "12:00",
-  breakEnabled: true,
-};
+function buildDay(workStart: string, workEnd: string): DaySchedule {
+  return {
+    workStart,
+    workEnd,
+    breakStart: "12:00",
+    breakEnabled: true,
+  };
+}
 
 function parseHM(s: string): number {
   const [h, m] = s.split(":").map(Number);
@@ -147,33 +158,36 @@ export function WorkingScheduleDialog({
   onOpenChange,
   value,
   onSave,
+  defaults,
 }: {
   open: boolean;
   onOpenChange: (o: boolean) => void;
   value?: WorkingScheduleValue;
   onSave: (next: WorkingScheduleValue) => void;
+  defaults?: { workStart: string; workEnd: string };
 }) {
-  const [draft, setDraft] = React.useState<WorkingScheduleValue>(
-    value ?? EMPTY,
+  const wStart = defaults?.workStart ?? "07:00";
+  const wEnd = defaults?.workEnd ?? "16:00";
+
+  const [restday, setRestdayState] = React.useState<RestdayValue[]>(
+    value?.restday ?? ["none"],
   );
-  const [breakType, setBreakType] = React.useState<BreakType>("1h");
+  const [breakType, setBreakType] = React.useState<BreakType>(
+    value?.breakType ?? "1h",
+  );
   const [schedules, setSchedules] = React.useState<
     Record<DayKey, DaySchedule>
-  >(() => Object.fromEntries(ALL_DAYS.map((d) => [d, { ...DEFAULT_DAY }])) as Record<DayKey, DaySchedule>);
+  >(() => value?.days ?? buildDefaultDays(wStart, wEnd));
 
   React.useEffect(() => {
     if (open) {
-      setDraft(value ?? EMPTY);
-      setBreakType("1h");
-      setSchedules(
-        Object.fromEntries(
-          ALL_DAYS.map((d) => [d, { ...DEFAULT_DAY }]),
-        ) as Record<DayKey, DaySchedule>,
-      );
+      setRestdayState(value?.restday ?? ["none"]);
+      setBreakType(value?.breakType ?? "1h");
+      setSchedules(value?.days ?? buildDefaultDays(wStart, wEnd));
     }
-  }, [open, value]);
+  }, [open, value, wStart, wEnd]);
 
-  const selectedRest = draft.restday ?? [];
+  const selectedRest = restday;
   const hasNone = selectedRest.includes("none");
   const items: { value: RestdayValue; label: string; disabled?: boolean }[] = [
     { value: "none", label: "No Restday" },
@@ -190,7 +204,7 @@ export function WorkingScheduleDialog({
     const justAddedNone =
       next.includes("none") && !selectedRest.includes("none");
     const final = justAddedNone ? (["none"] as RestdayValue[]) : next;
-    setDraft((d) => ({ ...d, restday: final.length === 0 ? null : final }));
+    setRestdayState(final);
   };
 
   const restSet = new Set<RestdayValue>(selectedRest);
@@ -359,7 +373,13 @@ export function WorkingScheduleDialog({
             type="button"
             disabled={hasInvalidDay}
             onClick={() => {
-              onSave(draft);
+              const finalRestday: RestdayValue[] =
+                restday.length === 0 ? ["none"] : restday;
+              onSave({
+                restday: finalRestday,
+                breakType,
+                days: schedules,
+              });
               onOpenChange(false);
             }}
           >

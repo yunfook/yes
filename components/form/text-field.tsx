@@ -35,6 +35,7 @@ export function TextField({
   type = "text",
   placeholder,
   required,
+  clearable = true,
 }: {
   form: FormWithField;
   name: string;
@@ -43,6 +44,7 @@ export function TextField({
   type?: React.HTMLInputTypeAttribute;
   placeholder?: string;
   required?: boolean;
+  clearable?: boolean;
 }) {
   const FieldComp = form.Field;
 
@@ -72,6 +74,7 @@ export function TextField({
               value={(field.state.value as string | undefined) ?? ""}
               onChange={(e) => field.handleChange(e.target.value)}
               onBlur={() => field.handleBlur()}
+              clearable={clearable}
             />
           </Field>
         );

@@ -31,6 +31,8 @@ const FIELDS: { key: keyof EmployeeFormConfig; label: string }[] = [
   { key: "nationality", label: "Nationality" },
   { key: "ic", label: "Identity Card" },
   { key: "passport", label: "Passport" },
+  { key: "totalAnnualLeave", label: "Total Annual Leave" },
+  { key: "totalSickLeave", label: "Total Sick Leave" },
 ];
 
 export function EmployeeFormSettingsDialog({

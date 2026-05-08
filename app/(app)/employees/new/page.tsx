@@ -18,8 +18,9 @@ import {
   listPositionsByArea,
   listDepartmentsByArea,
   getEmployeeFormConfig,
-  getAreaSettingRates,
+  getAreaSettingDefaults,
 } from "../actions";
+import { listSalaryTypesByArea } from "../../salary-types/actions";
 import { EmployeeForm } from "../employee-form";
 import { EmployeeFormSettingsDialog } from "../employee-form-settings-dialog";
 
@@ -36,12 +37,14 @@ export default async function NewEmployeePage({
   if (!currentAreaId) redirect("/dashboard");
   await assertCanAccessArea(session, currentAreaId);
 
-  const [positions, departments, config, rates] = await Promise.all([
-    listPositionsByArea(currentAreaId),
-    listDepartmentsByArea(currentAreaId),
-    getEmployeeFormConfig(currentAreaId),
-    getAreaSettingRates(currentAreaId),
-  ]);
+  const [positions, departments, otherSalaryTypes, config, defaults] =
+    await Promise.all([
+      listPositionsByArea(currentAreaId),
+      listDepartmentsByArea(currentAreaId),
+      listSalaryTypesByArea(currentAreaId),
+      getEmployeeFormConfig(currentAreaId),
+      getAreaSettingDefaults(currentAreaId),
+    ]);
 
   return (
     <div className="flex flex-col gap-4">
@@ -68,8 +71,10 @@ export default async function NewEmployeePage({
             areaId={currentAreaId}
             positions={positions}
             departments={departments}
+            otherSalaryTypes={otherSalaryTypes}
             config={config}
-            rates={rates}
+            rates={defaults.rates}
+            scheduleDefaults={defaults.schedule}
           />
         </CardContent>
       </Card>

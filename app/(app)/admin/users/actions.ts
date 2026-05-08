@@ -7,9 +7,10 @@ import { db } from "@/db";
 import { users, userAreas } from "@/db/schema";
 import { hashPassword } from "@/lib/auth";
 import { requireAdmin } from "@/lib/authz";
+import { usernameToEmail } from "@/lib/user-email";
 
 const BaseSchema = z.object({
-  email: z.email(),
+  username: z.string().trim().min(1).max(120),
   name: z.string().trim().min(1).max(120),
   isAdmin: z.boolean().default(false),
   areaIds: z.array(z.number().int().positive()).default([]),
@@ -30,7 +31,7 @@ export async function createUser(input: z.infer<typeof CreateSchema>) {
   const [created] = await db
     .insert(users)
     .values({
-      email: data.email.toLowerCase().trim(),
+      email: usernameToEmail(data.username),
       name: data.name,
       passwordHash,
       isAdmin: data.isAdmin,
@@ -51,7 +52,7 @@ export async function updateUser(
   await requireAdmin();
   const data = UpdateSchema.parse(input);
   const update: Partial<typeof users.$inferInsert> = {
-    email: data.email.toLowerCase().trim(),
+    email: usernameToEmail(data.username),
     name: data.name,
     isAdmin: data.isAdmin,
   };
@@ -71,6 +72,6 @@ export async function updateUser(
 
 export async function deleteUser(id: number) {
   await requireAdmin();
-  await db.delete(users).where(eq(users.id, id));
+  await db.update(users).set({ deletedAt: new Date() }).where(eq(users.id, id));
   revalidatePath("/admin/users");
 }

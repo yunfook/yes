@@ -35,6 +35,7 @@ function Autocomplete<V>({
       value={items.find((i) => i.value === value) ?? null}
       onValueChange={(item) => onValueChange(item?.value ?? null)}
       disabled={disabled}
+      autoHighlight
     >
       <ComboboxPrimitive.Input
         id={id}
@@ -59,7 +60,7 @@ function Autocomplete<V>({
             data-slot="autocomplete-content"
             className="relative isolate z-50 max-h-(--available-height) min-w-(--anchor-width) origin-(--transform-origin) overflow-y-auto rounded-lg bg-popover p-1 text-popover-foreground shadow-md ring-1 ring-foreground/10 duration-100 data-[side=bottom]:slide-in-from-top-2 data-[side=top]:slide-in-from-bottom-2 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95"
           >
-            <ComboboxPrimitive.Empty className="px-2 py-1.5 text-sm text-muted-foreground">
+            <ComboboxPrimitive.Empty className="px-2 py-1.5 text-sm text-muted-foreground empty:p-0">
               {emptyMessage}
             </ComboboxPrimitive.Empty>
             <ComboboxPrimitive.List>

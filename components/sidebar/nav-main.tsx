@@ -22,9 +22,11 @@ export type NavItem = {
 export function NavMain({
   label,
   items,
+  children,
 }: {
   label: string;
   items: NavItem[];
+  children?: React.ReactNode;
 }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -54,6 +56,7 @@ export function NavMain({
             </SidebarMenuItem>
           );
         })}
+        {children}
       </SidebarMenu>
     </SidebarGroup>
   );

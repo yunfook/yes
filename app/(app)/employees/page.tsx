@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import { db } from "@/db";
 import { areas } from "@/db/schema";
 import {
@@ -31,14 +31,14 @@ export default async function EmployeesPage({
   const [areaRow] = await db
     .select()
     .from(areas)
-    .where(eq(areas.id, currentAreaId))
+    .where(and(eq(areas.id, currentAreaId), isNull(areas.deletedAt)))
     .limit(1);
 
   return (
     <div className="flex flex-col gap-4">
       <div>
         <h1 className="text-2xl font-semibold">
-          Employees · {areaRow?.name ?? "—"}
+          Employees - {areaRow?.name ?? "—"}
         </h1>
         <p className="text-sm text-muted-foreground">
           Filterable, sortable. Switch areas in the sidebar.

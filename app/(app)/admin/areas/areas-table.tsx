@@ -17,7 +17,6 @@ import { DeleteAreaDialog } from "./delete-area-dialog";
 type Item = {
   id: number;
   name: string;
-  positionCount: number;
   employeeCount: number;
 };
 
@@ -39,8 +38,7 @@ export function AreasTable({ items }: { items: Item[] }) {
           <TableHeader>
             <TableRow>
               <TableHead>Name</TableHead>
-              <TableHead className="w-32 text-right">Positions</TableHead>
-              <TableHead className="w-32 text-right">Employees</TableHead>
+            <TableHead className="w-32 text-right">Employees</TableHead>
               <TableHead className="w-32" />
             </TableRow>
           </TableHeader>
@@ -55,7 +53,6 @@ export function AreasTable({ items }: { items: Item[] }) {
             {items.map((item) => (
               <TableRow key={item.id}>
                 <TableCell className="font-medium">{item.name}</TableCell>
-                <TableCell className="text-right">{item.positionCount}</TableCell>
                 <TableCell className="text-right">{item.employeeCount}</TableCell>
                 <TableCell className="text-right">
                   <Button
@@ -70,7 +67,7 @@ export function AreasTable({ items }: { items: Item[] }) {
                     size="icon"
                     onClick={() => setDeleting(item)}
                   >
-                    <Trash2Icon className="size-4" />
+                    <Trash2Icon className="size-4 text-red-500" />
                   </Button>
                 </TableCell>
               </TableRow>

@@ -1,14 +1,22 @@
 import { db } from "@/db";
 import { users, userAreas, areas } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { eq, and, isNull } from "drizzle-orm";
 import { requireAdmin } from "@/lib/authz";
 import { UsersTable } from "./users-table";
 
 export default async function UsersAdminPage() {
   await requireAdmin();
 
-  const allUsers = await db.select().from(users).orderBy(users.email);
-  const allAreas = await db.select().from(areas).orderBy(areas.name);
+  const allUsers = await db
+    .select()
+    .from(users)
+    .where(isNull(users.deletedAt))
+    .orderBy(users.email);
+  const allAreas = await db
+    .select()
+    .from(areas)
+    .where(isNull(areas.deletedAt))
+    .orderBy(areas.name);
 
   const assignmentRows = await db
     .select({
@@ -17,7 +25,10 @@ export default async function UsersAdminPage() {
       areaName: areas.name,
     })
     .from(userAreas)
-    .innerJoin(areas, eq(areas.id, userAreas.areaId));
+    .innerJoin(
+      areas,
+      and(eq(areas.id, userAreas.areaId), isNull(areas.deletedAt)),
+    );
 
   const assignmentsByUser = new Map<number, { id: number; name: string }[]>();
   for (const row of assignmentRows) {

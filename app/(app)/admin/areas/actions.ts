@@ -19,7 +19,11 @@ export async function createArea(input: z.infer<typeof AreaSchema>) {
     .values({ name: data.name })
     .returning({ id: areas.id });
   await db.insert(employeeForm).values({ areaId: area.id });
-  await db.insert(areaSetting).values({ areaId: area.id });
+  await db.insert(areaSetting).values({
+    areaId: area.id,
+    hoursPerWeek: 45,
+    daysPerMonth: 24,
+  });
   revalidatePath("/admin/areas");
 }
 
@@ -32,6 +36,6 @@ export async function updateArea(id: number, input: z.infer<typeof AreaSchema>) 
 
 export async function deleteArea(id: number) {
   await requireAdmin();
-  await db.delete(areas).where(eq(areas.id, id));
+  await db.update(areas).set({ deletedAt: new Date() }).where(eq(areas.id, id));
   revalidatePath("/admin/areas");
 }

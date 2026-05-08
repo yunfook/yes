@@ -2,7 +2,7 @@
 
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
-import { eq, and } from "drizzle-orm";
+import { eq, and, isNull } from "drizzle-orm";
 import { db } from "@/db";
 import {
   employees,
@@ -10,6 +10,7 @@ import {
   positions,
   departments,
   areaSetting,
+  otherSalaryType,
 } from "@/db/schema";
 import { requireSession, assertCanAccessArea } from "@/lib/authz";
 
@@ -22,48 +23,123 @@ const SalarySchema = z
     type: z.enum(["hour", "monthly", "other"]),
     hour: z.number().nonnegative().nullable(),
     day: z.number().nonnegative().nullable(),
+    week: z.number().nonnegative().nullable(),
     month: z.number().nonnegative().nullable(),
-    other: z.string().trim().min(1).nullable(),
+    otherTypeId: z.number().int().positive().nullable(),
+    hasOvertime: z.boolean(),
+    hasRestday: z.boolean(),
+    hasHoliday: z.boolean(),
   })
   .nullable();
 
-const Schema = z.object({
-  name: z.string().trim().min(1).max(120),
-  dob: NullishStr,
-  gender: z.enum(["male", "female"]).nullable(),
-  positionId: z.number().int().positive().nullable(),
-  departmentId: z.number().int().positive().nullable(),
-  ic: NullishStr,
-  passport: NullishStr,
-  nationality: z.enum(["local", "international"]).nullable(),
-  contactNumber: NullishStr,
-  email: NullishStr,
-  restday: z.array(z.enum(RESTDAY_VALUES)).min(1).nullable(),
-  salary: SalarySchema,
+const DAY_KEYS = [
+  "monday",
+  "tuesday",
+  "wednesday",
+  "thursday",
+  "friday",
+  "saturday",
+  "sunday",
+] as const;
+type DayKey = (typeof DAY_KEYS)[number];
+
+const DayScheduleSchema = z.object({
+  workStart: z.string().regex(/^\d{2}:\d{2}$/),
+  workEnd: z.string().regex(/^\d{2}:\d{2}$/),
+  breakStart: z.string().regex(/^\d{2}:\d{2}$/),
+  breakEnabled: z.boolean(),
 });
+
+const ScheduleSchema = z
+  .object({
+    restday: z.array(z.enum(RESTDAY_VALUES)).min(1),
+    breakType: z.enum(["30m", "1h", "2h", "none"]),
+    days: z.object({
+      monday: DayScheduleSchema,
+      tuesday: DayScheduleSchema,
+      wednesday: DayScheduleSchema,
+      thursday: DayScheduleSchema,
+      friday: DayScheduleSchema,
+      saturday: DayScheduleSchema,
+      sunday: DayScheduleSchema,
+    }),
+  })
+  .nullable();
+
+const Schema = z
+  .object({
+    name: z.string().trim().min(1).max(120),
+    dob: NullishStr,
+    gender: z.enum(["Male", "Female"]).nullable(),
+    positionId: z.number().int().positive().nullable(),
+    departmentId: z.number().int().positive().nullable(),
+    ic: NullishStr,
+    passport: NullishStr,
+    nationality: z.enum(["Local", "International"]).nullable(),
+    contactNumber: NullishStr,
+    email: NullishStr,
+    totalAnnualLeave: z.number().int().nonnegative().nullable(),
+    totalSickLeave: z.number().int().nonnegative().nullable(),
+    schedule: ScheduleSchema,
+    salary: SalarySchema,
+  })
+  .refine((d) => !(d.nationality === "International" && d.ic !== null), {
+    message: "International employees can't have an Identity Card",
+    path: ["ic"],
+  });
 
 export type EmployeeFormValues = z.infer<typeof Schema>;
 
 export type EmployeeRow = {
   id: number;
+  areaId: number | null;
   name: string;
   dob: string | null;
-  gender: "male" | "female" | null;
+  gender: "Male" | "Female" | null;
   positionId: number | null;
   positionName: string | null;
   departmentId: number | null;
   departmentName: string | null;
   ic: string | null;
   passport: string | null;
-  nationality: "local" | "international" | null;
+  nationality: "Local" | "International" | null;
   contactNumber: string | null;
   email: string | null;
+  totalAnnualLeave: number | null;
+  totalSickLeave: number | null;
   restday: RestdayValue[] | null;
+  breakType: "30m" | "1h" | "2h" | "none" | null;
+  mondayStart: string | null;
+  mondayEnd: string | null;
+  mondayBreak: string | null;
+  tuesdayStart: string | null;
+  tuesdayEnd: string | null;
+  tuesdayBreak: string | null;
+  wednesdayStart: string | null;
+  wednesdayEnd: string | null;
+  wednesdayBreak: string | null;
+  thursdayStart: string | null;
+  thursdayEnd: string | null;
+  thursdayBreak: string | null;
+  fridayStart: string | null;
+  fridayEnd: string | null;
+  fridayBreak: string | null;
+  saturdayStart: string | null;
+  saturdayEnd: string | null;
+  saturdayBreak: string | null;
+  sundayStart: string | null;
+  sundayEnd: string | null;
+  sundayBreak: string | null;
   salaryType: "hour" | "monthly" | "other" | null;
   salaryHour: number | null;
   salaryDay: number | null;
+  salaryWeek: number | null;
   salaryMonth: number | null;
-  salaryOther: string | null;
+  otherSalaryTypeId: number | null;
+  otherSalaryTypeName: string | null;
+  hasOvertime: boolean | null;
+  hasRestday: boolean | null;
+  hasHoliday: boolean | null;
 };
 
 export async function listEmployeesByArea(areaId: number): Promise<EmployeeRow[]> {
@@ -73,6 +149,7 @@ export async function listEmployeesByArea(areaId: number): Promise<EmployeeRow[]
   const rows = await db
     .select({
       id: employees.id,
+      areaId: employees.areaId,
       name: employees.name,
       dob: employees.dob,
       gender: employees.gender,
@@ -89,13 +166,22 @@ export async function listEmployeesByArea(areaId: number): Promise<EmployeeRow[]
       salaryType: employees.salaryType,
       salaryHour: employees.salaryHour,
       salaryDay: employees.salaryDay,
+      salaryWeek: employees.salaryWeek,
       salaryMonth: employees.salaryMonth,
-      salaryOther: employees.salaryOther,
+      otherSalaryTypeId: employees.otherSalaryTypeId,
+      otherSalaryTypeName: otherSalaryType.name,
+      hasOvertime: employees.hasOvertime,
+      hasRestday: employees.hasRestday,
+      hasHoliday: employees.hasHoliday,
     })
     .from(employees)
-    .innerJoin(positions, eq(positions.id, employees.positionId))
+    .leftJoin(positions, eq(positions.id, employees.positionId))
     .leftJoin(departments, eq(departments.id, employees.departmentId))
-    .where(eq(positions.areaId, areaId))
+    .leftJoin(
+      otherSalaryType,
+      eq(otherSalaryType.id, employees.otherSalaryTypeId),
+    )
+    .where(and(eq(employees.areaId, areaId), isNull(employees.deletedAt)))
     .orderBy(employees.name);
 
   return rows as EmployeeRow[];
@@ -105,7 +191,7 @@ async function assertPositionInArea(positionId: number, areaId: number) {
   const [row] = await db
     .select({ areaId: positions.areaId })
     .from(positions)
-    .where(eq(positions.id, positionId))
+    .where(and(eq(positions.id, positionId), isNull(positions.deletedAt)))
     .limit(1);
   if (!row || row.areaId !== areaId) {
     throw new Error("Position does not belong to this area");
@@ -116,11 +202,58 @@ async function assertDepartmentInArea(departmentId: number, areaId: number) {
   const [row] = await db
     .select({ areaId: departments.areaId })
     .from(departments)
-    .where(eq(departments.id, departmentId))
+    .where(and(eq(departments.id, departmentId), isNull(departments.deletedAt)))
     .limit(1);
   if (!row || row.areaId !== areaId) {
     throw new Error("Department does not belong to this area");
   }
+}
+
+function scheduleColumns(
+  schedule: NonNullable<EmployeeFormValues["schedule"]> | null,
+) {
+  const get = (day: DayKey) => {
+    if (!schedule) return { start: null, end: null, brk: null };
+    const d = schedule.days[day];
+    const breakOff = schedule.breakType === "none" || !d.breakEnabled;
+    return {
+      start: d.workStart,
+      end: d.workEnd,
+      brk: breakOff ? null : d.breakStart,
+    };
+  };
+  const m = get("monday");
+  const tu = get("tuesday");
+  const w = get("wednesday");
+  const th = get("thursday");
+  const f = get("friday");
+  const sa = get("saturday");
+  const su = get("sunday");
+  return {
+    restday: schedule?.restday ?? null,
+    breakType: schedule?.breakType ?? null,
+    mondayStart: m.start,
+    mondayEnd: m.end,
+    mondayBreak: m.brk,
+    tuesdayStart: tu.start,
+    tuesdayEnd: tu.end,
+    tuesdayBreak: tu.brk,
+    wednesdayStart: w.start,
+    wednesdayEnd: w.end,
+    wednesdayBreak: w.brk,
+    thursdayStart: th.start,
+    thursdayEnd: th.end,
+    thursdayBreak: th.brk,
+    fridayStart: f.start,
+    fridayEnd: f.end,
+    fridayBreak: f.brk,
+    saturdayStart: sa.start,
+    saturdayEnd: sa.end,
+    saturdayBreak: sa.brk,
+    sundayStart: su.start,
+    sundayEnd: su.end,
+    sundayBreak: su.brk,
+  };
 }
 
 export async function createEmployee(
@@ -137,6 +270,7 @@ export async function createEmployee(
     await assertDepartmentInArea(data.departmentId, areaId);
   }
   await db.insert(employees).values({
+    areaId,
     name: data.name,
     dob: data.dob,
     gender: data.gender,
@@ -147,12 +281,18 @@ export async function createEmployee(
     nationality: data.nationality,
     contactNumber: data.contactNumber,
     email: data.email,
-    restday: data.restday,
+    totalAnnualLeave: data.totalAnnualLeave,
+    totalSickLeave: data.totalSickLeave,
+    ...scheduleColumns(data.schedule),
     salaryType: data.salary?.type ?? null,
     salaryHour: data.salary?.hour ?? null,
     salaryDay: data.salary?.day ?? null,
+    salaryWeek: data.salary?.week ?? null,
     salaryMonth: data.salary?.month ?? null,
-    salaryOther: data.salary?.other ?? null,
+    otherSalaryTypeId: data.salary?.otherTypeId ?? null,
+    hasOvertime: data.salary?.hasOvertime ?? null,
+    hasRestday: data.salary?.hasRestday ?? null,
+    hasHoliday: data.salary?.hasHoliday ?? null,
   });
   revalidatePath("/employees");
   revalidatePath(`/employees`);
@@ -174,19 +314,19 @@ export async function updateEmployee(
   }
 
   const [existing] = await db
-    .select({ positionId: employees.positionId, areaId: positions.areaId })
+    .select({ areaId: employees.areaId })
     .from(employees)
-    .leftJoin(positions, eq(positions.id, employees.positionId))
-    .where(eq(employees.id, id))
+    .where(and(eq(employees.id, id), isNull(employees.deletedAt)))
     .limit(1);
   if (!existing) throw new Error("Not found");
-  if (existing.areaId !== null && existing.areaId !== areaId) {
-    await assertCanAccessArea(session, existing.areaId);
+  if (existing.areaId !== areaId) {
+    throw new Error("Employee does not belong to this area");
   }
 
   await db
     .update(employees)
     .set({
+      areaId,
       name: data.name,
       dob: data.dob,
       gender: data.gender,
@@ -197,12 +337,18 @@ export async function updateEmployee(
       nationality: data.nationality,
       contactNumber: data.contactNumber,
       email: data.email,
-      restday: data.restday,
+      totalAnnualLeave: data.totalAnnualLeave,
+      totalSickLeave: data.totalSickLeave,
+      ...scheduleColumns(data.schedule),
       salaryType: data.salary?.type ?? null,
       salaryHour: data.salary?.hour ?? null,
       salaryDay: data.salary?.day ?? null,
+      salaryWeek: data.salary?.week ?? null,
       salaryMonth: data.salary?.month ?? null,
-      salaryOther: data.salary?.other ?? null,
+      otherSalaryTypeId: data.salary?.otherTypeId ?? null,
+      hasOvertime: data.salary?.hasOvertime ?? null,
+      hasRestday: data.salary?.hasRestday ?? null,
+      hasHoliday: data.salary?.hasHoliday ?? null,
     })
     .where(eq(employees.id, id));
   revalidatePath("/employees");
@@ -213,13 +359,9 @@ export async function deleteEmployee(id: number, areaId: number) {
   const session = await requireSession();
   await assertCanAccessArea(session, areaId);
   await db
-    .delete(employees)
-    .where(
-      and(
-        eq(employees.id, id),
-        // ensure delete only applies if the employee's current position is in the area
-      ),
-    );
+    .update(employees)
+    .set({ deletedAt: new Date() })
+    .where(and(eq(employees.id, id), eq(employees.areaId, areaId)));
   revalidatePath("/employees");
 }
 
@@ -229,21 +371,62 @@ export async function listPositionsByArea(areaId: number) {
   return db
     .select({ id: positions.id, name: positions.name })
     .from(positions)
-    .where(eq(positions.areaId, areaId))
+    .where(and(eq(positions.areaId, areaId), isNull(positions.deletedAt)))
     .orderBy(positions.name);
 }
 
-export async function getAreaSettingRates(areaId: number) {
+export type ScheduleDefaults = {
+  workStart: string;
+  workEnd: string;
+};
+
+export type AreaSettingDefaults = {
+  rates: {
+    otRate: number;
+    rdRate: number;
+    phRate: number;
+    hoursPerWeek: number;
+    daysPerMonth: number;
+  };
+  schedule: ScheduleDefaults;
+};
+
+export async function getAreaSettingDefaults(
+  areaId: number,
+): Promise<AreaSettingDefaults> {
   const [row] = await db
     .select({
       otRate: areaSetting.otRate,
       rdRate: areaSetting.rdRate,
       phRate: areaSetting.phRate,
+      hoursPerWeek: areaSetting.hoursPerWeek,
+      daysPerMonth: areaSetting.daysPerMonth,
+      workStart: areaSetting.workStart,
+      workEnd: areaSetting.workEnd,
     })
     .from(areaSetting)
     .where(eq(areaSetting.areaId, areaId))
     .limit(1);
-  return row ?? { otRate: 1.5, rdRate: 2, phRate: 3 };
+  return {
+    rates: row
+      ? {
+          otRate: row.otRate,
+          rdRate: row.rdRate,
+          phRate: row.phRate,
+          hoursPerWeek: row.hoursPerWeek,
+          daysPerMonth: row.daysPerMonth,
+        }
+      : {
+          otRate: 1.5,
+          rdRate: 2,
+          phRate: 3,
+          hoursPerWeek: 45,
+          daysPerMonth: 24,
+        },
+    schedule: row
+      ? { workStart: row.workStart, workEnd: row.workEnd }
+      : { workStart: "07:00", workEnd: "16:00" },
+  };
 }
 
 export async function listDepartmentsByArea(areaId: number) {
@@ -252,7 +435,7 @@ export async function listDepartmentsByArea(areaId: number) {
   return db
     .select({ id: departments.id, name: departments.name })
     .from(departments)
-    .where(eq(departments.areaId, areaId))
+    .where(and(eq(departments.areaId, areaId), isNull(departments.deletedAt)))
     .orderBy(departments.name);
 }
 
@@ -266,6 +449,8 @@ export type EmployeeFormConfig = {
   passport: boolean;
   contactNumber: boolean;
   email: boolean;
+  totalAnnualLeave: boolean;
+  totalSickLeave: boolean;
 };
 
 const EmployeeFormConfigSchema = z.object({
@@ -278,6 +463,8 @@ const EmployeeFormConfigSchema = z.object({
   passport: z.boolean(),
   contactNumber: z.boolean(),
   email: z.boolean(),
+  totalAnnualLeave: z.boolean(),
+  totalSickLeave: z.boolean(),
 });
 
 export async function updateEmployeeFormConfig(
@@ -309,6 +496,8 @@ export async function getEmployeeFormConfig(
       passport: employeeForm.passport,
       contactNumber: employeeForm.contactNumber,
       email: employeeForm.email,
+      totalAnnualLeave: employeeForm.totalAnnualLeave,
+      totalSickLeave: employeeForm.totalSickLeave,
     })
     .from(employeeForm)
     .where(eq(employeeForm.areaId, areaId))
@@ -324,6 +513,8 @@ export async function getEmployeeFormConfig(
       passport: false,
       contactNumber: false,
       email: false,
+      totalAnnualLeave: false,
+      totalSickLeave: false,
     }
   );
 }

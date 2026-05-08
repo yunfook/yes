@@ -64,6 +64,12 @@ export function EmployeesClient({ areaId }: { areaId: number }) {
   const columns = React.useMemo<ColumnDef<EmployeeRow>[]>(
     () => [
       {
+        id: "index",
+        header: "#",
+        cell: ({ row, table }) =>
+          table.getSortedRowModel().rows.findIndex((r) => r.id === row.id) + 1,
+      },
+      {
         accessorKey: "name",
         header: ({ column }) => (
           <Button
@@ -85,22 +91,19 @@ export function EmployeesClient({ areaId }: { areaId: number }) {
           </Link>
         ),
       },
-      { accessorKey: "positionName", header: "Position" },
       {
-        accessorKey: "nationality",
-        header: "Nationality",
-        cell: ({ row }) => row.original.nationality ?? "—",
-      },
-      {
-        accessorKey: "gender",
-        header: "Gender",
-        cell: ({ row }) => row.original.gender ?? "—",
-      },
-      {
-        accessorKey: "ic",
-        header: "IC / Passport",
+        accessorKey: "departmentName",
+        header: "Department",
         cell: ({ row }) =>
-          row.original.ic ?? row.original.passport ?? (
+          row.original.departmentName ?? (
+            <span className="text-muted-foreground">—</span>
+          ),
+      },
+      {
+        accessorKey: "positionName",
+        header: "Positions",
+        cell: ({ row }) =>
+          row.original.positionName ?? (
             <span className="text-muted-foreground">—</span>
           ),
       },
@@ -134,7 +137,7 @@ export function EmployeesClient({ areaId }: { areaId: number }) {
               size="icon"
               onClick={() => setDeleting(row.original)}
             >
-              <Trash2Icon className="size-4" />
+              <Trash2Icon className="size-4 text-red-500" />
             </Button>
           </div>
         ),
@@ -164,6 +167,7 @@ export function EmployeesClient({ areaId }: { areaId: number }) {
           value={globalFilter}
           onChange={(e) => setGlobalFilter(e.target.value)}
           className="max-w-sm"
+          clearable
         />
         <div className="flex-1" />
         <Button render={<Link href={`/employees/new?area=${areaId}`} />}>

@@ -11,15 +11,17 @@ import {
 import {
   LayoutDashboardIcon,
   UsersIcon,
-  BriefcaseIcon,
-  Building2Icon,
+  UserPlusIcon,
   MapPinIcon,
   ShieldIcon,
-  SettingsIcon,
 } from "lucide-react";
 import { AreaSwitcher } from "./area-switcher";
 import { NavMain, type NavItem } from "./nav-main";
 import { NavUser } from "./nav-user";
+import { AreaSettingsMenuItem } from "./area-settings-menu-item";
+import { PositionsMenuItem } from "./positions-menu-item";
+import { DepartmentsMenuItem } from "./departments-menu-item";
+import { SalaryTypesMenuItem } from "./salary-types-menu-item";
 
 type Area = { id: number; name: string };
 type SessionUser = { name: string; email: string; isAdmin: boolean };
@@ -32,12 +34,13 @@ export function AppSidebar({
   user: SessionUser;
   areas: Area[];
 } & React.ComponentProps<typeof Sidebar>) {
+  const fastLink: NavItem[] = [
+    { title: "Create employee", href: "/employees/new", icon: UserPlusIcon, preserveArea: true },
+  ];
+
   const main: NavItem[] = [
     { title: "Dashboard", href: "/dashboard", icon: LayoutDashboardIcon, preserveArea: true },
     { title: "Employees", href: "/employees", icon: UsersIcon, preserveArea: true },
-    { title: "Positions", href: "/positions", icon: BriefcaseIcon, preserveArea: true },
-    { title: "Departments", href: "/departments", icon: Building2Icon, preserveArea: true },
-    { title: "Area Settings", href: "/area-settings", icon: SettingsIcon, preserveArea: true },
   ];
 
   const admin: NavItem[] = [
@@ -48,10 +51,17 @@ export function AppSidebar({
   return (
     <Sidebar collapsible="offcanvas" {...props}>
       <SidebarHeader>
-        <AreaSwitcher areas={areas} />
+        <AreaSwitcher areas={areas} isAdmin={user.isAdmin} />
       </SidebarHeader>
       <SidebarContent>
-        <NavMain label="Workspace" items={main} />
+        <NavMain label="Fast Link" items={fastLink} />
+        <NavMain label="Main" items={main} />
+        <NavMain label="Library" items={[]}>
+          <PositionsMenuItem areas={areas} />
+          <DepartmentsMenuItem areas={areas} />
+          <SalaryTypesMenuItem areas={areas} />
+          <AreaSettingsMenuItem areas={areas} />
+        </NavMain>
         {user.isAdmin && <NavMain label="Admin" items={admin} />}
       </SidebarContent>
       <SidebarFooter>

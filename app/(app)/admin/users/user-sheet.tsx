@@ -17,11 +17,12 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { TextField } from "@/components/form/text-field";
 import { createUser, updateUser } from "./actions";
+import { emailToUsername } from "@/lib/user-email";
 import type { UserItem } from "./users-table";
 import type { AnyFieldApi } from "@tanstack/react-form";
 
 const Schema = z.object({
-  email: z.email(),
+  username: z.string().trim().min(1).max(120),
   name: z.string().trim().min(1).max(120),
   password: z.string(),
   isAdmin: z.boolean(),
@@ -42,7 +43,7 @@ export function UserSheet({
   const isEdit = !!existing;
   const form = useForm({
     defaultValues: {
-      email: existing?.email ?? "",
+      username: existing ? emailToUsername(existing.email) : "",
       name: existing?.name ?? "",
       password: "",
       isAdmin: existing?.isAdmin ?? false,
@@ -71,7 +72,7 @@ export function UserSheet({
   React.useEffect(() => {
     if (open) {
       form.reset({
-        email: existing?.email ?? "",
+        username: existing ? emailToUsername(existing.email) : "",
         name: existing?.name ?? "",
         password: "",
         isAdmin: existing?.isAdmin ?? false,
@@ -98,7 +99,7 @@ export function UserSheet({
             void form.handleSubmit();
           }}
         >
-          <TextField form={form} name="email" label="Email" type="email" required />
+          <TextField form={form} name="username" label="Username" required />
           <TextField form={form} name="name" label="Name" required />
           <TextField
             form={form}

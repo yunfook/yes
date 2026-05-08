@@ -50,6 +50,62 @@
       "when": 1778175123838,
       "tag": "0006_famous_forge",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1778218140000,
+      "tag": "0007_salary_flags",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1778218200000,
+      "tag": "0008_salary_week_settings",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1778218260000,
+      "tag": "0010_employee_area_id",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1778218320000,
+      "tag": "0011_salary_flags_nullable",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1778218380000,
+      "tag": "0012_capitalize_enums",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1778218440000,
+      "tag": "0013_soft_delete",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1778218500000,
+      "tag": "0014_other_salary_type",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1778218560000,
+      "tag": "0015_leave_columns",
+      "breakpoints": true
     }
   ]
 }

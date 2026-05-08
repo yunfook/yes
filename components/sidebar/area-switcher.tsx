@@ -20,7 +20,13 @@ import { ChevronsUpDownIcon, MapPinIcon } from "lucide-react";
 
 type Area = { id: number; name: string };
 
-export function AreaSwitcher({ areas }: { areas: Area[] }) {
+export function AreaSwitcher({
+  areas,
+  isAdmin,
+}: {
+  areas: Area[];
+  isAdmin: boolean;
+}) {
   const { isMobile } = useSidebar();
   const router = useRouter();
   const pathname = usePathname();
@@ -46,6 +52,23 @@ export function AreaSwitcher({ areas }: { areas: Area[] }) {
             </div>
             <span className="truncate text-sm">No areas assigned</span>
           </SidebarMenuButton>
+        </SidebarMenuItem>
+      </SidebarMenu>
+    );
+  }
+
+  if (!isAdmin) {
+    return (
+      <SidebarMenu>
+        <SidebarMenuItem>
+          <div className="flex items-center gap-2 px-2 py-1.5">
+            <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
+              <MapPinIcon className="size-4" />
+            </div>
+            <div className="grid flex-1 text-left text-sm leading-tight">
+              <span className="truncate font-medium">{active.name}</span>
+            </div>
+          </div>
         </SidebarMenuItem>
       </SidebarMenu>
     );

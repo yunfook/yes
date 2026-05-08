@@ -1,46 +1,35 @@
 "use client";
 
 import * as React from "react";
-import { CalendarDaysIcon } from "lucide-react";
+import { CalendarDaysIcon, CheckIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { WorkingScheduleDialog } from "@/components/working-schedule-dialog";
-import { useWorkingScheduleStore } from "./working-schedule-store";
+import { useEmployeeDraftStore } from "./employee-draft-store";
 
-const DAY_LABEL: Record<string, string> = {
-  none: "No Restday",
-  monday: "Mon",
-  tuesday: "Tue",
-  wednesday: "Wed",
-  thursday: "Thu",
-  friday: "Fri",
-  saturday: "Sat",
-  sunday: "Sun",
-};
-
-export function WorkingScheduleDialogButton() {
+export function WorkingScheduleDialogButton({
+  defaults,
+}: {
+  defaults: { workStart: string; workEnd: string };
+}) {
   const [open, setOpen] = React.useState(false);
-  const schedule = useWorkingScheduleStore((s) => s.schedule);
-  const setSchedule = useWorkingScheduleStore((s) => s.setSchedule);
+  const schedule = useEmployeeDraftStore((s) => s.schedule);
+  const setSchedule = useEmployeeDraftStore((s) => s.setSchedule);
 
-  const restday = schedule?.restday ?? null;
-  const summary =
-    !restday || restday.length === 0
-      ? "Set schedule"
-      : restday.includes("none")
-        ? "No Restday"
-        : `Off: ${restday.map((d) => DAY_LABEL[d] ?? d).join(", ")}`;
+  const filled = !!schedule?.restday && schedule.restday.length > 0;
 
   return (
     <>
       <Button type="button" onClick={() => setOpen(true)}>
         <CalendarDaysIcon />
-        {summary}
+        Set schedule
+        {filled && <CheckIcon className="ml-1 size-3.5" />}
       </Button>
       <WorkingScheduleDialog
         open={open}
         onOpenChange={setOpen}
         value={schedule ?? undefined}
         onSave={setSchedule}
+        defaults={defaults}
       />
     </>
   );

@@ -29,10 +29,18 @@ export function LoginForm({ next }: { next?: string }) {
         <form action={action} className="flex flex-col gap-4">
           {next && <input type="hidden" name="next" value={next} />}
           <div className="grid gap-2">
-            <Label htmlFor="email">Email</Label>
-            <Input id="email" name="email" type="email" autoComplete="email" required />
-            {state?.fieldErrors?.email && (
-              <p className="text-destructive text-sm">{state.fieldErrors.email[0]}</p>
+            <Label htmlFor="username">Username</Label>
+            <Input
+              id="username"
+              name="username"
+              type="text"
+              autoComplete="username"
+              required
+            />
+            {state?.fieldErrors?.username && (
+              <p className="text-destructive text-sm">
+                {state.fieldErrors.username[0]}
+              </p>
             )}
           </div>
           <div className="grid gap-2">

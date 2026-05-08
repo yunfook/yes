@@ -12,8 +12,8 @@ import {
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 
-export const nationalityEnum = pgEnum("nationality", ["local", "international"]);
-export const genderEnum = pgEnum("gender", ["male", "female"]);
+export const nationalityEnum = pgEnum("nationality", ["Local", "International"]);
+export const genderEnum = pgEnum("gender", ["Male", "Female"]);
 export const breakTypeEnum = pgEnum("break_type", ["30m", "1h", "2h", "none"]);
 
 export const users = pgTable("users", {
@@ -23,12 +23,14 @@ export const users = pgTable("users", {
   passwordHash: text("password_hash").notNull(),
   isAdmin: boolean("is_admin").notNull().default(false),
   createdAt: timestamp("created_at").notNull().defaultNow(),
+  deletedAt: timestamp("deleted_at"),
 });
 
 export const areas = pgTable("areas", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
   createdAt: timestamp("created_at").notNull().defaultNow(),
+  deletedAt: timestamp("deleted_at"),
 });
 
 export const userAreas = pgTable(
@@ -51,6 +53,7 @@ export const positions = pgTable("positions", {
     .notNull()
     .references(() => areas.id, { onDelete: "cascade" }),
   createdAt: timestamp("created_at").notNull().defaultNow(),
+  deletedAt: timestamp("deleted_at"),
 });
 
 export const departments = pgTable("departments", {
@@ -60,6 +63,17 @@ export const departments = pgTable("departments", {
     .notNull()
     .references(() => areas.id, { onDelete: "cascade" }),
   createdAt: timestamp("created_at").notNull().defaultNow(),
+  deletedAt: timestamp("deleted_at"),
+});
+
+export const otherSalaryType = pgTable("other_salary_type", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  areaId: integer("area_id")
+    .notNull()
+    .references(() => areas.id, { onDelete: "cascade" }),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  deletedAt: timestamp("deleted_at"),
 });
 
 
@@ -70,6 +84,10 @@ export const areaSetting = pgTable("area_setting", {
   otRate: real("ot_rate").notNull().default(1.5),
   rdRate: real("rd_rate").notNull().default(2),
   phRate: real("ph_rate").notNull().default(3),
+  hoursPerWeek: real("hours_per_week").notNull().default(45),
+  daysPerMonth: real("days_per_month").notNull().default(24),
+  workStart: text("work_start").notNull().default("07:00"),
+  workEnd: text("work_end").notNull().default("16:00"),
 });
 
 export const employeeForm = pgTable("employee_form", {
@@ -85,10 +103,15 @@ export const employeeForm = pgTable("employee_form", {
   departments: boolean("departments").notNull().default(false),
   contactNumber: boolean("contact_number").notNull().default(false),
   email: boolean("email").notNull().default(false),
+  totalAnnualLeave: boolean("total_annual_leave").notNull().default(false),
+  totalSickLeave: boolean("total_sick_leave").notNull().default(false),
 });
 
 export const employees = pgTable("employees", {
   id: serial("id").primaryKey(),
+  areaId: integer("area_id").references(() => areas.id, {
+    onDelete: "cascade",
+  }),
   name: text("name").notNull(),
   dob: date("dob"),
   gender: genderEnum("gender"),
@@ -107,8 +130,15 @@ export const employees = pgTable("employees", {
   salaryType: text("salary_type"),
   salaryHour: real("salary_hour"),
   salaryDay: real("salary_day"),
+  salaryWeek: real("salary_week"),
   salaryMonth: real("salary_month"),
-  salaryOther: text("salary_other"),
+  otherSalaryTypeId: integer("other_salary_type_id").references(
+    () => otherSalaryType.id,
+    { onDelete: "set null" },
+  ),
+  hasOvertime: boolean("has_overtime"),
+  hasRestday: boolean("has_restday"),
+  hasHoliday: boolean("has_holiday"),
   breakType: breakTypeEnum("break_type"),
   mondayStart: text("monday_start"),
   mondayEnd: text("monday_end"),
@@ -131,7 +161,10 @@ export const employees = pgTable("employees", {
   sundayStart: text("sunday_start"),
   sundayEnd: text("sunday_end"),
   sundayBreak: text("sunday_break"),
+  totalAnnualLeave: integer("total_annual_leave"),
+  totalSickLeave: integer("total_sick_leave"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
+  deletedAt: timestamp("deleted_at"),
 });
 
 export const usersRelations = relations(users, ({ many }) => ({
@@ -142,6 +175,7 @@ export const areasRelations = relations(areas, ({ many, one }) => ({
   userAreas: many(userAreas),
   positions: many(positions),
   departments: many(departments),
+  employees: many(employees),
   employeeForm: one(employeeForm, {
     fields: [areas.id],
     references: [employeeForm.areaId],
@@ -176,6 +210,7 @@ export const positionsRelations = relations(positions, ({ one, many }) => ({
 }));
 
 export const employeesRelations = relations(employees, ({ one }) => ({
+  area: one(areas, { fields: [employees.areaId], references: [areas.id] }),
   position: one(positions, {
     fields: [employees.positionId],
     references: [positions.id],

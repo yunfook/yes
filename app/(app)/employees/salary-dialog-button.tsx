@@ -1,40 +1,43 @@
 "use client";
 
 import * as React from "react";
-import { CoinsIcon } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { CheckIcon, CoinsIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SalaryDialog, type SalaryRates } from "@/components/salary-dialog";
-import { useSalaryStore } from "./salary-store";
+import { useEmployeeDraftStore } from "./employee-draft-store";
+import { SalaryTypeSheet } from "../salary-types/salary-type-sheet";
 
-const TYPE_LABEL: Record<string, string> = {
-  hour: "Hour rate",
-  monthly: "Monthly",
-  other: "Other",
-};
-
-function format(n: number | null | undefined): string {
-  if (n === null || n === undefined) return "—";
-  return Number.isInteger(n) ? String(n) : n.toFixed(2);
-}
-
-export function SalaryDialogButton({ rates }: { rates: SalaryRates }) {
+export function SalaryDialogButton({
+  rates,
+  otherTypes,
+  areaId,
+}: {
+  rates: SalaryRates;
+  otherTypes: { id: number; name: string }[];
+  areaId: number;
+}) {
+  const router = useRouter();
   const [open, setOpen] = React.useState(false);
-  const salary = useSalaryStore((s) => s.salary);
-  const setSalary = useSalaryStore((s) => s.setSalary);
+  const [addOpen, setAddOpen] = React.useState(false);
+  const salary = useEmployeeDraftStore((s) => s.salary);
+  const setSalary = useEmployeeDraftStore((s) => s.setSalary);
 
-  const summary = !salary
-    ? "Set salary"
-    : salary.type === "other"
-      ? `${TYPE_LABEL.other} · ${salary.other ?? "—"}`
-      : salary.hour === null && salary.day === null && salary.month === null
-        ? "Set salary"
-        : `${TYPE_LABEL[salary.type] ?? salary.type} · ${format(salary.hour)}/h · ${format(salary.day)}/d · ${format(salary.month)}/m`;
+  const filled =
+    !!salary &&
+    (salary.type === "other"
+      ? salary.otherTypeId != null
+      : salary.hour != null ||
+        salary.day != null ||
+        salary.week != null ||
+        salary.month != null);
 
   return (
     <>
       <Button type="button" onClick={() => setOpen(true)}>
         <CoinsIcon />
-        {summary}
+        Set salary
+        {filled && <CheckIcon className="ml-1 size-3.5" />}
       </Button>
       <SalaryDialog
         open={open}
@@ -42,6 +45,16 @@ export function SalaryDialogButton({ rates }: { rates: SalaryRates }) {
         value={salary ?? undefined}
         onSave={setSalary}
         rates={rates}
+        otherTypes={otherTypes}
+        onAddOtherType={() => setAddOpen(true)}
+      />
+      <SalaryTypeSheet
+        open={addOpen}
+        onOpenChange={(o) => {
+          setAddOpen(o);
+          if (!o) router.refresh();
+        }}
+        areaId={areaId}
       />
     </>
   );

@@ -32,6 +32,7 @@ export type CheckboxFieldProps = {
   label: string;
   description?: string;
   defaultEnabledValue?: unknown;
+  labelExtras?: React.ReactNode;
   children: (args: RenderArgs) => React.ReactNode;
 };
 
@@ -51,6 +52,7 @@ export function CheckboxField({
   label,
   description,
   defaultEnabledValue = "",
+  labelExtras,
   children,
 }: CheckboxFieldProps) {
   const FieldComp = form.Field;
@@ -86,6 +88,7 @@ export function CheckboxField({
               >
                 {label}
               </FieldLabel>
+              {enabled && labelExtras}
               {enabled && errorList.length > 0 && (
                 <FieldError className="m-0" errors={errorList} />
               )}

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import { notFound } from "next/navigation";
 import { ArrowLeftIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -14,9 +14,10 @@ import {
   listPositionsByArea,
   listDepartmentsByArea,
   getEmployeeFormConfig,
-  getAreaSettingRates,
+  getAreaSettingDefaults,
   type EmployeeRow,
 } from "../../actions";
+import { listSalaryTypesByArea } from "../../../salary-types/actions";
 import { EmployeeForm } from "../../employee-form";
 
 export default async function EditEmployeePage({
@@ -35,6 +36,7 @@ export default async function EditEmployeePage({
   const [row] = await db
     .select({
       id: employees.id,
+      areaId: employees.areaId,
       name: employees.name,
       dob: employees.dob,
       gender: employees.gender,
@@ -43,37 +45,66 @@ export default async function EditEmployeePage({
       nationality: employees.nationality,
       contactNumber: employees.contactNumber,
       email: employees.email,
+      totalAnnualLeave: employees.totalAnnualLeave,
+      totalSickLeave: employees.totalSickLeave,
       restday: employees.restday,
+      breakType: employees.breakType,
+      mondayStart: employees.mondayStart,
+      mondayEnd: employees.mondayEnd,
+      mondayBreak: employees.mondayBreak,
+      tuesdayStart: employees.tuesdayStart,
+      tuesdayEnd: employees.tuesdayEnd,
+      tuesdayBreak: employees.tuesdayBreak,
+      wednesdayStart: employees.wednesdayStart,
+      wednesdayEnd: employees.wednesdayEnd,
+      wednesdayBreak: employees.wednesdayBreak,
+      thursdayStart: employees.thursdayStart,
+      thursdayEnd: employees.thursdayEnd,
+      thursdayBreak: employees.thursdayBreak,
+      fridayStart: employees.fridayStart,
+      fridayEnd: employees.fridayEnd,
+      fridayBreak: employees.fridayBreak,
+      saturdayStart: employees.saturdayStart,
+      saturdayEnd: employees.saturdayEnd,
+      saturdayBreak: employees.saturdayBreak,
+      sundayStart: employees.sundayStart,
+      sundayEnd: employees.sundayEnd,
+      sundayBreak: employees.sundayBreak,
       salaryType: employees.salaryType,
       salaryHour: employees.salaryHour,
       salaryDay: employees.salaryDay,
+      salaryWeek: employees.salaryWeek,
       salaryMonth: employees.salaryMonth,
-      salaryOther: employees.salaryOther,
+      otherSalaryTypeId: employees.otherSalaryTypeId,
+      hasOvertime: employees.hasOvertime,
+      hasRestday: employees.hasRestday,
+      hasHoliday: employees.hasHoliday,
       positionId: employees.positionId,
       positionName: positionsTbl.name,
       departmentId: employees.departmentId,
       departmentName: departmentsTbl.name,
-      areaId: positionsTbl.areaId,
     })
     .from(employees)
     .leftJoin(positionsTbl, eq(positionsTbl.id, employees.positionId))
     .leftJoin(departmentsTbl, eq(departmentsTbl.id, employees.departmentId))
-    .where(eq(employees.id, employeeId))
+    .where(and(eq(employees.id, employeeId), isNull(employees.deletedAt)))
     .limit(1);
 
   if (!row) notFound();
 
-  const areaId = area ? Number(area) : (row.areaId ?? null);
+  const areaId = area ? Number(area) : row.areaId;
   if (!areaId) notFound();
 
   await assertCanAccessArea(session, areaId);
 
-  const [positions, departments, config, rates] = await Promise.all([
-    listPositionsByArea(areaId),
-    listDepartmentsByArea(areaId),
-    getEmployeeFormConfig(areaId),
-    getAreaSettingRates(areaId),
-  ]);
+  const [positions, departments, otherSalaryTypes, config, defaults] =
+    await Promise.all([
+      listPositionsByArea(areaId),
+      listDepartmentsByArea(areaId),
+      listSalaryTypesByArea(areaId),
+      getEmployeeFormConfig(areaId),
+      getAreaSettingDefaults(areaId),
+    ]);
 
   return (
     <div className="flex flex-col gap-4">
@@ -87,7 +118,7 @@ export default async function EditEmployeePage({
         </Button>
       </div>
       <div>
-        <h1 className="text-2xl font-semibold">Edit · {row.name}</h1>
+        <h1 className="text-2xl font-semibold">Edit - {row.name}</h1>
         <p className="text-sm text-muted-foreground">
           Untick a field to clear it.
         </p>
@@ -96,10 +127,13 @@ export default async function EditEmployeePage({
         areaId={areaId}
         positions={positions}
         departments={departments}
+        otherSalaryTypes={otherSalaryTypes}
         config={config}
-        rates={rates}
+        rates={defaults.rates}
+        scheduleDefaults={defaults.schedule}
         existing={{
           id: row.id,
+          areaId: row.areaId,
           name: row.name,
           dob: row.dob,
           gender: row.gender,
@@ -112,12 +146,41 @@ export default async function EditEmployeePage({
           nationality: row.nationality,
           contactNumber: row.contactNumber,
           email: row.email,
+          totalAnnualLeave: row.totalAnnualLeave,
+          totalSickLeave: row.totalSickLeave,
           restday: row.restday as EmployeeRow["restday"],
+          breakType: row.breakType as EmployeeRow["breakType"],
+          mondayStart: row.mondayStart,
+          mondayEnd: row.mondayEnd,
+          mondayBreak: row.mondayBreak,
+          tuesdayStart: row.tuesdayStart,
+          tuesdayEnd: row.tuesdayEnd,
+          tuesdayBreak: row.tuesdayBreak,
+          wednesdayStart: row.wednesdayStart,
+          wednesdayEnd: row.wednesdayEnd,
+          wednesdayBreak: row.wednesdayBreak,
+          thursdayStart: row.thursdayStart,
+          thursdayEnd: row.thursdayEnd,
+          thursdayBreak: row.thursdayBreak,
+          fridayStart: row.fridayStart,
+          fridayEnd: row.fridayEnd,
+          fridayBreak: row.fridayBreak,
+          saturdayStart: row.saturdayStart,
+          saturdayEnd: row.saturdayEnd,
+          saturdayBreak: row.saturdayBreak,
+          sundayStart: row.sundayStart,
+          sundayEnd: row.sundayEnd,
+          sundayBreak: row.sundayBreak,
           salaryType: row.salaryType as EmployeeRow["salaryType"],
           salaryHour: row.salaryHour,
           salaryDay: row.salaryDay,
+          salaryWeek: row.salaryWeek,
           salaryMonth: row.salaryMonth,
-          salaryOther: row.salaryOther,
+          otherSalaryTypeId: row.otherSalaryTypeId,
+          otherSalaryTypeName: null,
+          hasOvertime: row.hasOvertime,
+          hasRestday: row.hasRestday,
+          hasHoliday: row.hasHoliday,
         }}
       />
     </div>

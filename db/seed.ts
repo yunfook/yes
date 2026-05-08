@@ -13,10 +13,10 @@ async function main() {
 
   const adminPasswordHash = await hash("admin123");
 
-  const [admin] = await db
+  await db
     .insert(schema.users)
     .values({
-      email: "admin@local.test",
+      email: "admin@yunfook.com.my",
       name: "Super Admin",
       passwordHash: adminPasswordHash,
       isAdmin: true,
@@ -70,26 +70,28 @@ async function main() {
       await db.insert(schema.employees).values([
         {
           name: "John Doe",
+          areaId: north.id,
           dob: "1990-05-12",
-          gender: "male",
+          gender: "Male",
           positionId: managerNorth.id,
           ic: "900512-10-1234",
-          nationality: "local",
+          nationality: "Local",
         },
         {
           name: "Jane Smith",
+          areaId: north.id,
           dob: "1992-08-20",
-          gender: "female",
+          gender: "Female",
           positionId: managerNorth.id,
           passport: "P12345678",
-          nationality: "international",
+          nationality: "International",
         },
       ]);
     }
   }
 
   console.log("Seed complete:");
-  console.log("  admin@local.test / admin123  (super admin)");
+  console.log("  admin@yunfook.com.my / admin123  (super admin)");
   console.log("  alice@local / user123   (area: North only)");
   console.log("  Areas:", insertedAreas.map((a) => a.name).join(", "));
 }

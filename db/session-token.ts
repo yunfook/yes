@@ -2,7 +2,7 @@ import { config as loadEnv } from "dotenv";
 loadEnv({ path: ".env.local" });
 import { neon } from "@neondatabase/serverless";
 import { drizzle } from "drizzle-orm/neon-http";
-import { eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import { SignJWT } from "jose";
 import * as schema from "./schema";
 
@@ -14,7 +14,9 @@ async function main() {
   const [user] = await db
     .select()
     .from(schema.users)
-    .where(eq(schema.users.email, email))
+    .where(
+      and(eq(schema.users.email, email), isNull(schema.users.deletedAt)),
+    )
     .limit(1);
   if (!user) throw new Error(`No user ${email}`);
   const key = new TextEncoder().encode(

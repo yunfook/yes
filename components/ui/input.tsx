@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { Input as InputPrimitive } from "@base-ui/react/input";
-import { Trash2Icon } from "lucide-react";
+import { RotateCcw } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
@@ -11,12 +11,13 @@ const inputClass =
 
 type InputProps = Omit<React.ComponentProps<"input">, "type"> & {
   type?: React.HTMLInputTypeAttribute | "money";
+  clearable?: boolean;
 };
 
-function Input({ className, type, ...props }: InputProps) {
+function Input({ className, type, clearable = false, ...props }: InputProps) {
   const inputRef = React.useRef<HTMLInputElement | null>(null);
   const isMoney = type === "money";
-  const showClear = !props.readOnly && !props.disabled;
+  const showClear = clearable && !props.readOnly && !props.disabled;
 
   const clear = () => {
     const el = inputRef.current;
@@ -49,7 +50,7 @@ function Input({ className, type, ...props }: InputProps) {
       />
       {showClear && (
         <InputButton onClick={clear} aria-label="Clear">
-          <Trash2Icon className="size-3.5" />
+          <RotateCcw className="size-3.5 text-muted-foreground" />
         </InputButton>
       )}
     </div>

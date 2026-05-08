@@ -1,6 +1,6 @@
 import "server-only";
 import { redirect } from "next/navigation";
-import { and, eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import { db } from "@/db";
 import { userAreas, areas } from "@/db/schema";
 import { getSession, type SessionPayload } from "./session";
@@ -19,13 +19,17 @@ export async function requireAdmin(): Promise<SessionPayload> {
 
 export async function getAccessibleAreas(session: SessionPayload) {
   if (session.isAdmin) {
-    return db.select().from(areas).orderBy(areas.name);
+    return db
+      .select()
+      .from(areas)
+      .where(isNull(areas.deletedAt))
+      .orderBy(areas.name);
   }
   return db
     .select({ id: areas.id, name: areas.name, createdAt: areas.createdAt })
     .from(areas)
     .innerJoin(userAreas, eq(userAreas.areaId, areas.id))
-    .where(eq(userAreas.userId, session.userId))
+    .where(and(eq(userAreas.userId, session.userId), isNull(areas.deletedAt)))
     .orderBy(areas.name);
 }
 

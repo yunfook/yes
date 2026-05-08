@@ -13,6 +13,7 @@ import {
 import { PencilIcon, PlusIcon, ShieldIcon, Trash2Icon } from "lucide-react";
 import { UserSheet } from "./user-sheet";
 import { DeleteUserDialog } from "./delete-user-dialog";
+import { emailToUsername } from "@/lib/user-email";
 
 export type UserItem = {
   id: number;
@@ -44,7 +45,7 @@ export function UsersTable({
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Email</TableHead>
+              <TableHead>Username</TableHead>
               <TableHead>Name</TableHead>
               <TableHead>Role</TableHead>
               <TableHead>Areas</TableHead>
@@ -61,7 +62,9 @@ export function UsersTable({
             )}
             {items.map((u) => (
               <TableRow key={u.id}>
-                <TableCell className="font-medium">{u.email}</TableCell>
+                <TableCell className="font-medium">
+                  {emailToUsername(u.email)}
+                </TableCell>
                 <TableCell>{u.name}</TableCell>
                 <TableCell>
                   {u.isAdmin ? (
@@ -99,7 +102,7 @@ export function UsersTable({
                     size="icon"
                     onClick={() => setDeleting(u)}
                   >
-                    <Trash2Icon className="size-4" />
+                    <Trash2Icon className="size-4 text-red-500" />
                   </Button>
                 </TableCell>
               </TableRow>

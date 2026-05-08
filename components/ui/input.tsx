@@ -31,7 +31,7 @@ function Input({ className, type, ...props }: InputProps) {
   };
 
   return (
-    <div className="relative w-full">
+    <div className={cn("relative w-full", className)}>
       {isMoney && (
         <span className="pointer-events-none absolute top-1/2 left-2.5 -translate-y-1/2 text-xs font-medium text-muted-foreground">
           RM
@@ -44,12 +44,7 @@ function Input({ className, type, ...props }: InputProps) {
         step={isMoney ? "0.01" : undefined}
         min={isMoney ? 0 : undefined}
         data-slot="input"
-        className={cn(
-          inputClass,
-          isMoney && "pl-9",
-          showClear && "pr-9",
-          className,
-        )}
+        className={cn(inputClass, isMoney && "pl-9", showClear && "pr-9")}
         {...props}
       />
       {showClear && (

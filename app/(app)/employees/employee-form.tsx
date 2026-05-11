@@ -3,6 +3,7 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "@tanstack/react-form";
+import { useQueryClient } from "@tanstack/react-query";
 import { z } from "zod";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -150,6 +151,7 @@ export function EmployeeForm({
   existing?: EmployeeRow;
 }) {
   const router = useRouter();
+  const qc = useQueryClient();
   const isEdit = !!existing;
 
   const initialValues = React.useMemo<EmployeeDraftValues>(() => {
@@ -182,13 +184,15 @@ export function EmployeeForm({
           ? {
               type: existing.salaryType,
               hour: existing.salaryHour,
-              day: existing.salaryDay,
-              week: existing.salaryWeek,
               month: existing.salaryMonth,
               otherTypeId: existing.otherSalaryTypeId,
-              hasOvertime: existing.hasOvertime ?? true,
-              hasRestday: existing.hasRestday ?? true,
-              hasHoliday: existing.hasHoliday ?? true,
+              hasOvertime: existing.hasOvertime,
+              hasRestday: existing.hasRestday,
+              hasHoliday: existing.hasHoliday,
+              hasDouble: existing.hasDouble,
+              hasTriple: existing.hasTriple,
+              hoursPerDay: existing.hoursPerDay,
+              daysPerMonth: existing.daysPerMonth,
             }
           : null,
       );
@@ -281,8 +285,8 @@ export function EmployeeForm({
         else await createEmployee(areaId, payload);
         toast.success(isEdit ? "Employee updated" : "Employee created");
         useEmployeeDraftStore.getState().reset();
+        qc.invalidateQueries({ queryKey: ["employees", areaId] });
         router.push(`/employees?area=${areaId}`);
-        router.refresh();
       } catch (err) {
         toast.error(err instanceof Error ? err.message : "Failed");
       }
@@ -561,19 +565,19 @@ export function EmployeeForm({
 
       <FormRow>
         <div className="flex items-center gap-3">
+          <Label className="shrink-0">Working Schedule</Label>
+          <WorkingScheduleDialogButton defaults={scheduleDefaults} />
+        </div>
+      </FormRow>
+
+      <FormRow>
+        <div className="flex items-center gap-3">
           <Label className="shrink-0">Salary Information</Label>
           <SalaryDialogButton
             rates={rates}
             otherTypes={otherSalaryTypes}
             areaId={areaId}
           />
-        </div>
-      </FormRow>
-
-      <FormRow>
-        <div className="flex items-center gap-3">
-          <Label className="shrink-0">Working Schedule</Label>
-          <WorkingScheduleDialogButton defaults={scheduleDefaults} />
         </div>
       </FormRow>
 

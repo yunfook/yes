@@ -8,7 +8,6 @@ import {
   flexRender,
   getCoreRowModel,
   getFilteredRowModel,
-  getPaginationRowModel,
   getSortedRowModel,
   type SortingState,
   useReactTable,
@@ -38,13 +37,20 @@ import {
 } from "./actions";
 import { DeleteEmployeeDialog } from "./delete-employee-dialog";
 
-export function EmployeesClient({ areaId }: { areaId: number }) {
+export function EmployeesClient({
+  areaId,
+  initialData,
+}: {
+  areaId: number;
+  initialData: EmployeeRow[];
+}) {
   const qc = useQueryClient();
   const queryKey = ["employees", areaId] as const;
 
   const { data: rows = [], isPending } = useQuery({
     queryKey,
     queryFn: () => listEmployeesByArea(areaId),
+    initialData,
   });
 
   const del = useMutation({
@@ -93,7 +99,18 @@ export function EmployeesClient({ areaId }: { areaId: number }) {
       },
       {
         accessorKey: "departmentName",
-        header: "Department",
+        header: ({ column }) => (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() =>
+              column.toggleSorting(column.getIsSorted() === "asc")
+            }
+          >
+            Department <ArrowUpDownIcon className="ml-2 size-3" />
+          </Button>
+        ),
+        sortUndefined: "last",
         cell: ({ row }) =>
           row.original.departmentName ?? (
             <span className="text-muted-foreground">—</span>
@@ -101,11 +118,49 @@ export function EmployeesClient({ areaId }: { areaId: number }) {
       },
       {
         accessorKey: "positionName",
-        header: "Positions",
+        header: ({ column }) => (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() =>
+              column.toggleSorting(column.getIsSorted() === "asc")
+            }
+          >
+            Positions <ArrowUpDownIcon className="ml-2 size-3" />
+          </Button>
+        ),
+        sortUndefined: "last",
         cell: ({ row }) =>
           row.original.positionName ?? (
             <span className="text-muted-foreground">—</span>
           ),
+      },
+      {
+        id: "salaryTypeLabel",
+        accessorFn: (row) =>
+          row.salaryType === "other"
+            ? (row.otherSalaryTypeName ?? "Other")
+            : row.salaryType === "hour"
+              ? "Hour rate"
+              : row.salaryType === "monthly"
+                ? "Monthly paid"
+                : null,
+        header: ({ column }) => (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() =>
+              column.toggleSorting(column.getIsSorted() === "asc")
+            }
+          >
+            Salary type <ArrowUpDownIcon className="ml-2 size-3" />
+          </Button>
+        ),
+        sortUndefined: "last",
+        cell: ({ getValue }) => {
+          const v = getValue<string | null>();
+          return v ?? <span className="text-muted-foreground">—</span>;
+        },
       },
       {
         id: "actions",
@@ -155,8 +210,6 @@ export function EmployeesClient({ areaId }: { areaId: number }) {
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
-    getPaginationRowModel: getPaginationRowModel(),
-    initialState: { pagination: { pageSize: 10 } },
   });
 
   return (
@@ -175,9 +228,9 @@ export function EmployeesClient({ areaId }: { areaId: number }) {
         </Button>
       </div>
 
-      <div className="rounded-md border">
+      <div className="max-h-[calc(100vh-12rem)] overflow-y-auto rounded-md border">
         <Table>
-          <TableHeader>
+          <TableHeader className="sticky top-0 z-10 bg-card">
             {table.getHeaderGroups().map((hg) => (
               <TableRow key={hg.id}>
                 {hg.headers.map((h) => (
@@ -216,31 +269,6 @@ export function EmployeesClient({ areaId }: { areaId: number }) {
             ))}
           </TableBody>
         </Table>
-      </div>
-
-      <div className="flex items-center justify-between text-sm text-muted-foreground">
-        <div>
-          Page {table.getState().pagination.pageIndex + 1} of{" "}
-          {table.getPageCount() || 1}
-        </div>
-        <div className="flex gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => table.previousPage()}
-            disabled={!table.getCanPreviousPage()}
-          >
-            Prev
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => table.nextPage()}
-            disabled={!table.getCanNextPage()}
-          >
-            Next
-          </Button>
-        </div>
       </div>
 
       <DeleteEmployeeDialog

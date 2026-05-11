@@ -81,4 +81,25 @@ function InputButton({
   );
 }
 
-export { Input, InputButton };
+const smallInputClass =
+  "h-6 w-10 min-w-0 rounded-md border-[1.5px] border-input bg-transparent px-1 text-center text-xs transition-colors outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:m-0 [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:m-0 [&::-webkit-outer-spin-button]:appearance-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:cursor-not-allowed disabled:border-input disabled:bg-input/50 disabled:opacity-50 read-only:border-input read-only:bg-muted/30 dark:bg-input/30 dark:disabled:bg-input/80 dark:read-only:bg-input/30";
+
+function SmallInput({
+  className,
+  onFocus,
+  ...props
+}: React.ComponentProps<"input">) {
+  return (
+    <InputPrimitive
+      data-slot="small-input"
+      className={cn(smallInputClass, className)}
+      onFocus={(e) => {
+        e.currentTarget.select();
+        onFocus?.(e);
+      }}
+      {...props}
+    />
+  );
+}
+
+export { Input, InputButton, SmallInput };

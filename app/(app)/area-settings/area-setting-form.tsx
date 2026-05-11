@@ -2,6 +2,8 @@
 
 import * as React from "react";
 import { toast } from "sonner";
+import { useQueryClient } from "@tanstack/react-query";
+import { SettingsIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { HourPicker } from "@/components/form/wheel-pickers";
@@ -14,13 +16,9 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { updateAreaSetting, type AreaSettingValues } from "./actions";
+import { PayMultiplierDialog } from "./pay-multiplier-dialog";
 
-type NumberKey =
-  | "otRate"
-  | "rdRate"
-  | "phRate"
-  | "hoursPerWeek"
-  | "daysPerMonth";
+type NumberKey = "hoursPerWeek" | "daysPerMonth";
 type TimeKey = "workStart" | "workEnd";
 
 type RowSpec =
@@ -38,24 +36,6 @@ type RowSpec =
     };
 
 const ROWS: RowSpec[] = [
-  {
-    kind: "number",
-    key: "otRate",
-    label: "Overtime rate",
-    description: "Multiplier for overtime hours.",
-  },
-  {
-    kind: "number",
-    key: "rdRate",
-    label: "Rest day rate",
-    description: "Multiplier for rest day work.",
-  },
-  {
-    kind: "number",
-    key: "phRate",
-    label: "Public holiday rate",
-    description: "Multiplier for public holiday work.",
-  },
   {
     kind: "number",
     key: "hoursPerWeek",
@@ -93,6 +73,8 @@ export function AreaSettingForm({
   const [drafts, setDrafts] = React.useState<AreaSettingValues>(initial);
   const [savingKey, setSavingKey] =
     React.useState<keyof AreaSettingValues | null>(null);
+  const [payMultiplierOpen, setPayMultiplierOpen] = React.useState(false);
+  const qc = useQueryClient();
 
   const setNumber = (key: NumberKey, value: number) => {
     setDrafts((d) => ({ ...d, [key]: value }));
@@ -110,6 +92,8 @@ export function AreaSettingForm({
       const next = { ...committed, [key]: drafts[key] };
       await updateAreaSetting(areaId, next);
       setCommitted(next);
+      qc.invalidateQueries({ queryKey: ["areaSetting", areaId] });
+      qc.invalidateQueries({ queryKey: ["employees", areaId] });
       toast.success("Saved");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed");
@@ -119,6 +103,7 @@ export function AreaSettingForm({
   };
 
   return (
+    <>
     <Table>
       <TableHeader>
         <TableRow>
@@ -128,6 +113,24 @@ export function AreaSettingForm({
         </TableRow>
       </TableHeader>
       <TableBody>
+        <TableRow>
+          <TableCell className="align-top">
+            <div className="font-medium">Pay multiplier</div>
+            <div className="text-xs text-muted-foreground">
+              Configure overtime, restday, holiday, double, and triple rates.
+            </div>
+          </TableCell>
+          <TableCell>
+            <Button
+              type="button"
+              size="sm"
+              onClick={() => setPayMultiplierOpen(true)}
+            >
+              <SettingsIcon className="size-4" /> Setting
+            </Button>
+          </TableCell>
+          <TableCell />
+        </TableRow>
         {ROWS.map((row) => (
           <TableRow key={row.key}>
             <TableCell className="align-top">
@@ -179,5 +182,11 @@ export function AreaSettingForm({
         ))}
       </TableBody>
     </Table>
+    <PayMultiplierDialog
+      open={payMultiplierOpen}
+      onOpenChange={setPayMultiplierOpen}
+      areaId={areaId}
+    />
+    </>
   );
 }

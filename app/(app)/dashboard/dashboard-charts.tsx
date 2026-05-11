@@ -83,19 +83,13 @@ function BarChartCard({
     ...d,
     display: formatLabel ? formatLabel(d.label) : d.label,
   }));
-  const total = data.reduce((sum, d) => sum + d.count, 0);
   const config: ChartConfig = {
     count: { label: "Employees", color: "var(--primary)" },
   };
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <span>{title}</span>
-          <span className="text-sm font-normal text-muted-foreground">
-            {total}
-          </span>
-        </CardTitle>
+        <CardTitle>{title}</CardTitle>
       </CardHeader>
       <CardContent>
         {chartData.length === 0 ? (
@@ -136,8 +130,16 @@ function BarChartCard({
   );
 }
 
-function PieChartCard({ title, data }: { title: string; data: ChartDatum[] }) {
-  const total = data.reduce((sum, d) => sum + d.count, 0);
+function PieChartCard({
+  title,
+  data,
+  count,
+}: {
+  title: string;
+  data: ChartDatum[];
+  count?: number;
+}) {
+  const total = count ?? data.length;
   const config: ChartConfig = {
     count: { label: "Employees" },
     ...Object.fromEntries(
@@ -175,7 +177,6 @@ function PieChartCard({ title, data }: { title: string; data: ChartDatum[] }) {
                 dataKey="count"
                 nameKey="label"
                 outerRadius={90}
-                label={({ name, value }) => `${name}: ${value}`}
               >
                 {data.map((_, i) => (
                   <Cell
@@ -192,13 +193,25 @@ function PieChartCard({ title, data }: { title: string; data: ChartDatum[] }) {
   );
 }
 
-export function DashboardCharts({ data }: { data: DashboardData }) {
+export function DashboardCharts({
+  data,
+  deptTotal,
+  posTotal,
+}: {
+  data: DashboardData;
+  deptTotal?: number;
+  posTotal?: number;
+}) {
   return (
     <div className="grid gap-4 md:grid-cols-2">
       <BarChartCard title="Gender" data={data.gender} />
       <BarChartCard title="Nationality" data={data.nationality} />
-      <PieChartCard title="Positions" data={data.positions} />
-      <PieChartCard title="Departments" data={data.departments} />
+      <PieChartCard title="Positions" data={data.positions} count={posTotal} />
+      <PieChartCard
+        title="Departments"
+        data={data.departments}
+        count={deptTotal}
+      />
       <PieChartCard
         title="Salary type"
         data={data.salaryType.map((d) => ({

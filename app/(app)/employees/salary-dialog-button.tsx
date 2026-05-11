@@ -27,10 +27,7 @@ export function SalaryDialogButton({
     !!salary &&
     (salary.type === "other"
       ? salary.otherTypeId != null
-      : salary.hour != null ||
-        salary.day != null ||
-        salary.week != null ||
-        salary.month != null);
+      : salary.hour != null || salary.month != null);
 
   return (
     <>

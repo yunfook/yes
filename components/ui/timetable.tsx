@@ -26,6 +26,13 @@ const DAY_LABEL: Record<DayKey, string> = {
 
 export type DayKey = (typeof DAYS)[number];
 
+export const WORK_SESSION_CLASS =
+  "bg-primary text-primary-foreground border-primary";
+export const BREAK_SESSION_CLASS =
+  "bg-[color-mix(in_oklab,var(--primary)_15%,var(--card))] border-[color-mix(in_oklab,var(--primary)_30%,var(--card))] [&_span]:text-[10px] [&_span]:font-medium [&_span]:text-primary";
+export const RESTDAY_COLUMN_CLASS =
+  "bg-[var(--highlight)] border-x border-border/60";
+
 export type TimetableSession = {
   day: DayKey;
   /** "HH:mm" */
@@ -49,6 +56,8 @@ export type TimetableProps = React.ComponentProps<"div"> & {
   sessions?: TimetableSession[];
   /** Which day columns to render. Defaults to Mon–Sun. */
   days?: DayKey[];
+  /** Per-day className applied to that column's cells (e.g. restday tint) */
+  dayClassName?: Partial<Record<DayKey, string>>;
   /** When true, time labels sit centered on the grid line instead of inside the row */
   timeOnLine?: boolean;
   /** When true, columns stretch to fill width (1fr) instead of fixed 8rem */
@@ -157,7 +166,7 @@ function SessionBlock({
   return (
     <div
       className={cn(
-        "absolute z-10 overflow-hidden rounded-md border border-border bg-card px-2 py-1 shadow-xs transition-opacity hover:opacity-90",
+        "absolute z-10 overflow-hidden border border-border bg-card px-2 py-1 shadow-xs transition-opacity hover:opacity-90",
         session.className,
       )}
       style={{
@@ -173,7 +182,7 @@ function SessionBlock({
             : 1,
       }}
     >
-      <span className="block truncate text-xs leading-tight font-semibold text-foreground">
+      <span className="block truncate text-xs leading-tight font-semibold">
         {session.title}
       </span>
       {height > 28 && session.description && (
@@ -192,6 +201,7 @@ function Timetable({
   rowHeight = 40,
   sessions = [],
   days = DAYS as unknown as DayKey[],
+  dayClassName,
   timeOnLine = false,
   fluid = false,
   className,
@@ -246,6 +256,7 @@ function Timetable({
               className={cn(
                 "flex items-center justify-center px-2 text-sm font-medium whitespace-nowrap text-foreground",
                 i < days.length - 1 && "border-r border-border/40",
+                dayClassName?.[day],
               )}
             >
               {DAY_LABEL[day]}
@@ -308,7 +319,10 @@ function Timetable({
         >
           <div />
           {days.map((day) => (
-            <div key={day} className="pointer-events-auto relative">
+            <div
+              key={day}
+              className={cn("pointer-events-auto relative", dayClassName?.[day])}
+            >
               {laidByDay[day].map((session, i) => (
                 <SessionBlock
                   key={`${day}-${session.start}-${session.end}-${i}`}

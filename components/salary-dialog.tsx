@@ -12,7 +12,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { PlusIcon } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Input } from "@/components/ui/input";
+import { Input, SmallInput } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -21,7 +21,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Autocomplete } from "@/components/ui/autocomplete";
+import { Table, TableBody, TableCell, TableRow } from "@/components/ui/table";
+import { Separator } from "@/components/ui/separator";
+import { cn } from "@/lib/utils";
 
 const HOURS_PER_DAY = 8;
 
@@ -30,16 +32,23 @@ export type SalaryType = "hour" | "monthly" | "other";
 export type SalaryValue = {
   type: SalaryType;
   hour: number | null;
-  day: number | null;
-  week: number | null;
   month: number | null;
   otherTypeId: number | null;
-  hasOvertime: boolean;
-  hasRestday: boolean;
-  hasHoliday: boolean;
+  hasOvertime: boolean | null;
+  hasRestday: boolean | null;
+  hasHoliday: boolean | null;
+  hasDouble: boolean | null;
+  hasTriple: boolean | null;
+  hoursPerDay: number | null;
+  daysPerMonth: number | null;
 };
 
 export type SalaryRates = {
+  hasOt: boolean;
+  hasRd: boolean;
+  hasPh: boolean;
+  hasDbl: boolean;
+  hasTpl: boolean;
   otRate: number;
   rdRate: number;
   phRate: number;
@@ -48,22 +57,30 @@ export type SalaryRates = {
 };
 
 const DEFAULT_RATES: SalaryRates = {
+  hasOt: true,
+  hasRd: true,
+  hasPh: true,
+  hasDbl: false,
+  hasTpl: false,
   otRate: 1.5,
   rdRate: 2,
   phRate: 3,
   hoursPerWeek: 45,
   daysPerMonth: 24,
 };
+
 const EMPTY: SalaryValue = {
   type: "hour",
   hour: null,
-  day: null,
-  week: null,
   month: null,
   otherTypeId: null,
-  hasOvertime: true,
-  hasRestday: true,
-  hasHoliday: true,
+  hasOvertime: null,
+  hasRestday: null,
+  hasHoliday: null,
+  hasDouble: null,
+  hasTriple: null,
+  hoursPerDay: null,
+  daysPerMonth: null,
 };
 
 const TYPE_LABEL: Record<SalaryType, string> = {
@@ -92,6 +109,30 @@ function round2(n: number): number {
   return Math.round(n * 100) / 100;
 }
 
+function InlineNumInput({
+  value,
+  onChange,
+}: {
+  value: number;
+  onChange: (n: number) => void;
+}) {
+  const [text, setText] = React.useState<string>(String(value));
+  return (
+    <SmallInput
+      type="number"
+      min={1}
+      step="0.01"
+      value={text}
+      onChange={(e) => {
+        const next = e.target.value;
+        setText(next);
+        const n = Number(next);
+        if (Number.isFinite(n) && n > 0) onChange(n);
+      }}
+    />
+  );
+}
+
 export function SalaryDialog({
   open,
   onOpenChange,
@@ -109,45 +150,80 @@ export function SalaryDialog({
   otherTypes?: { id: number; name: string }[];
   onAddOtherType?: () => void;
 }) {
-  const [draft, setDraft] = React.useState<SalaryValue>(value ?? EMPTY);
-  const [enabledRates, setEnabledRates] = React.useState({
-    overtime: true,
-    restday: true,
-    holiday: true,
-  });
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-3xl">
+        <DialogHeader>
+          <DialogTitle>Salary</DialogTitle>
+          <DialogDescription>
+            Pick a rate type. Filling the driving field auto-computes the
+            others.
+          </DialogDescription>
+        </DialogHeader>
+        {open ? (
+          <SalaryDialogBody
+            initialValue={value}
+            rates={rates}
+            otherTypes={otherTypes}
+            onAddOtherType={onAddOtherType}
+            onSave={(next) => {
+              onSave(next);
+              onOpenChange(false);
+            }}
+            onCancel={() => onOpenChange(false)}
+          />
+        ) : null}
+      </DialogContent>
+    </Dialog>
+  );
+}
 
-  React.useEffect(() => {
-    if (open) {
-      setDraft({ ...EMPTY, ...value });
-      setEnabledRates({
-        overtime: value?.hasOvertime ?? true,
-        restday: value?.hasRestday ?? true,
-        holiday: value?.hasHoliday ?? true,
-      });
-    }
-  }, [open, value]);
+function SalaryDialogBody({
+  initialValue,
+  rates,
+  otherTypes,
+  onAddOtherType,
+  onSave,
+  onCancel,
+}: {
+  initialValue?: SalaryValue;
+  rates: SalaryRates;
+  otherTypes: { id: number; name: string }[];
+  onAddOtherType?: () => void;
+  onSave: (next: SalaryValue) => void;
+  onCancel: () => void;
+}) {
+  const [draft, setDraft] = React.useState<SalaryValue>(() => ({
+    ...EMPTY,
+    ...initialValue,
+  }));
+  const [enabledRates, setEnabledRates] = React.useState(() => ({
+    overtime: initialValue?.hasOvertime ?? true,
+    restday: initialValue?.hasRestday ?? true,
+    holiday: initialValue?.hasHoliday ?? true,
+    double: initialValue?.hasDouble ?? true,
+    triple: initialValue?.hasTriple ?? true,
+  }));
+  const [hoursPerDay, setHoursPerDayState] = React.useState<number>(
+    initialValue?.hoursPerDay ?? HOURS_PER_DAY,
+  );
+  const [daysPerMonth, setDaysPerMonthState] = React.useState<number>(
+    initialValue?.daysPerMonth ?? rates.daysPerMonth,
+  );
 
   const setType = (type: SalaryType) => {
     setDraft((d) => {
       if (type === "hour") {
-        return {
-          ...d,
-          type,
-          day: d.hour === null ? null : round2(d.hour * HOURS_PER_DAY),
-          week: d.hour === null ? null : round2(d.hour * rates.hoursPerWeek),
-          month: null,
-        };
+        return { ...d, type, month: null };
       }
       if (type === "monthly") {
         return {
           ...d,
           type,
-          day: d.month === null ? null : round2(d.month / rates.daysPerMonth),
-          week: null,
           hour:
             d.month === null
               ? null
-              : round2(d.month / rates.daysPerMonth / HOURS_PER_DAY),
+              : round2(d.month / daysPerMonth / hoursPerDay),
         };
       }
       return { ...d, type };
@@ -158,13 +234,7 @@ export function SalaryDialog({
     const hour = parseNum(raw);
     setDraft((d) => {
       if (d.type === "hour") {
-        return {
-          ...d,
-          hour,
-          day: hour === null ? null : round2(hour * HOURS_PER_DAY),
-          week: hour === null ? null : round2(hour * rates.hoursPerWeek),
-          month: null,
-        };
+        return { ...d, hour, month: null };
       }
       return { ...d, hour };
     });
@@ -177,15 +247,33 @@ export function SalaryDialog({
         return {
           ...d,
           month,
-          day: month === null ? null : round2(month / rates.daysPerMonth),
-          week: null,
           hour:
             month === null
               ? null
-              : round2(month / rates.daysPerMonth / HOURS_PER_DAY),
+              : round2(month / daysPerMonth / hoursPerDay),
         };
       }
       return { ...d, month };
+    });
+  };
+
+  const setHoursPerDay = (next: number) => {
+    setHoursPerDayState(next);
+    setDraft((d) => {
+      if (d.type === "monthly" && d.month !== null) {
+        return { ...d, hour: round2(d.month / daysPerMonth / next) };
+      }
+      return d;
+    });
+  };
+
+  const setDaysPerMonth = (next: number) => {
+    setDaysPerMonthState(next);
+    setDraft((d) => {
+      if (d.type === "monthly" && d.month !== null) {
+        return { ...d, hour: round2(d.month / next / hoursPerDay) };
+      }
+      return d;
     });
   };
 
@@ -194,12 +282,59 @@ export function SalaryDialog({
   };
 
   const isOther = draft.type === "other";
-  const hourEditable = draft.type === "hour";
-  const monthEditable = draft.type === "monthly";
 
-  const ot = draft.hour === null ? null : draft.hour * rates.otRate;
-  const rd = draft.hour === null ? null : draft.hour * rates.rdRate;
-  const ph = draft.hour === null ? null : draft.hour * rates.phRate;
+  const computeRate = (multiplier: number) =>
+    draft.hour === null ? null : draft.hour * multiplier;
+
+  const RATE_ROWS: {
+    key: keyof typeof enabledRates;
+    areaEnabled: boolean;
+    label: string;
+    multiplier: number;
+    inputId: string;
+    checkboxId: string;
+  }[] = [
+    {
+      key: "overtime",
+      areaEnabled: rates.hasOt,
+      label: "Overtime",
+      multiplier: rates.otRate,
+      inputId: "salary-ot",
+      checkboxId: "salary-ot-enabled",
+    },
+    {
+      key: "restday",
+      areaEnabled: rates.hasRd,
+      label: "Restday",
+      multiplier: rates.rdRate,
+      inputId: "salary-rd",
+      checkboxId: "salary-rd-enabled",
+    },
+    {
+      key: "holiday",
+      areaEnabled: rates.hasPh,
+      label: "Public Holiday",
+      multiplier: rates.phRate,
+      inputId: "salary-ph",
+      checkboxId: "salary-ph-enabled",
+    },
+    {
+      key: "double",
+      areaEnabled: rates.hasDbl,
+      label: "Double pay",
+      multiplier: 2,
+      inputId: "salary-db",
+      checkboxId: "salary-db-enabled",
+    },
+    {
+      key: "triple",
+      areaEnabled: rates.hasTpl,
+      label: "Triple pay",
+      multiplier: 3,
+      inputId: "salary-tp",
+      checkboxId: "salary-tp-enabled",
+    },
+  ];
 
   const setRateEnabled = (
     key: keyof typeof enabledRates,
@@ -208,43 +343,112 @@ export function SalaryDialog({
     setEnabledRates((current) => ({ ...current, [key]: checked }));
   };
 
+  type LeftRow = {
+    key: "hour" | "day" | "month";
+    label: string;
+    hint: React.ReactNode;
+    inputId: string;
+    value: number | null;
+    editable: boolean;
+    onChange?: (raw: string) => void;
+  };
+
+  const renderInlineNum = (
+    prefix: string,
+    val: number,
+    onNum: (n: number) => void,
+  ) => (
+    <span className="inline-flex items-center justify-center gap-1">
+      <span>{prefix}</span>
+      <InlineNumInput value={val} onChange={onNum} />
+    </span>
+  );
+
+  const LEFT_ROWS: LeftRow[] =
+    draft.type === "hour"
+      ? [
+          {
+            key: "hour",
+            label: "Hour",
+            hint: null,
+            inputId: "salary-hour",
+            value: draft.hour,
+            editable: true,
+            onChange: setHour,
+          },
+          {
+            key: "day",
+            label: "Day",
+            hint: renderInlineNum("h×", hoursPerDay, setHoursPerDay),
+            inputId: "salary-day",
+            value:
+              draft.hour === null ? null : round2(draft.hour * hoursPerDay),
+            editable: false,
+          },
+        ]
+      : [
+          {
+            key: "month",
+            label: "Monthly",
+            hint: null,
+            inputId: "salary-month",
+            value: draft.month,
+            editable: true,
+            onChange: setMonth,
+          },
+          {
+            key: "day",
+            label: "Day",
+            hint: renderInlineNum("m/", daysPerMonth, setDaysPerMonth),
+            inputId: "salary-day",
+            value:
+              draft.month === null ? null : round2(draft.month / daysPerMonth),
+            editable: false,
+          },
+          {
+            key: "hour",
+            label: "Hour",
+            hint: renderInlineNum("d/", hoursPerDay, setHoursPerDay),
+            inputId: "salary-hour",
+            value: draft.hour,
+            editable: false,
+          },
+        ];
+
   const buildNextDraft = (): SalaryValue => {
     if (draft.type === "other") {
       return {
         ...draft,
         hour: null,
-        day: null,
-        week: null,
         month: null,
         hasOvertime: false,
         hasRestday: false,
         hasHoliday: false,
+        hasDouble: false,
+        hasTriple: false,
+        hoursPerDay: null,
+        daysPerMonth: null,
       };
     }
 
     return {
       ...draft,
       otherTypeId: null,
-      week: draft.type === "hour" ? draft.week : null,
       month: draft.type === "monthly" ? draft.month : null,
-      hasOvertime: enabledRates.overtime,
-      hasRestday: enabledRates.restday,
-      hasHoliday: enabledRates.holiday,
+      hasOvertime: rates.hasOt ? enabledRates.overtime : null,
+      hasRestday: rates.hasRd ? enabledRates.restday : null,
+      hasHoliday: rates.hasPh ? enabledRates.holiday : null,
+      hasDouble: rates.hasDbl ? enabledRates.double : null,
+      hasTriple: rates.hasTpl ? enabledRates.triple : null,
+      hoursPerDay,
+      daysPerMonth,
     };
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>Salary</DialogTitle>
-          <DialogDescription>
-            Pick a rate type. Filling the driving field auto-computes the
-            others.
-          </DialogDescription>
-        </DialogHeader>
-
-        <div className="flex flex-col gap-4 py-1">
+    <>
+      <div className="flex gap-4 py-1">
+        <div className="flex flex-1 flex-col gap-4">
           <div className="flex w-40 shrink-0 flex-col gap-1.5">
             <Label htmlFor="salary-type">Salary Type</Label>
             <Select
@@ -264,228 +468,161 @@ export function SalaryDialog({
           </div>
           {isOther && (
             <div className="flex flex-col gap-1.5">
-              <div className="flex items-center gap-2">
-                <Label htmlFor="salary-other">Type</Label>
-                {onAddOtherType && (
-                  <Button type="button" size="xs" onClick={onAddOtherType}>
-                    <PlusIcon /> Add
-                  </Button>
-                )}
-              </div>
-              <Autocomplete<number>
-                  id="salary-other"
-                  items={otherTypes.map((t) => ({
-                    value: t.id,
-                    label: t.name,
-                  }))}
-                  value={draft.otherTypeId}
-                  onValueChange={(v) => setOtherTypeId(v)}
-                  placeholder={
-                    otherTypes.length === 0
-                      ? "No salary types yet"
-                      : "Select salary type"
-                  }
-                  emptyMessage="No matching types."
-                  disabled={otherTypes.length === 0}
-                />
-              </div>
-            )}
-
+              <Label htmlFor="salary-other">Type</Label>
+              <Input
+                id="salary-other"
+                value={
+                  otherTypes.find((t) => t.id === draft.otherTypeId)?.name ??
+                  ""
+                }
+                readOnly
+                placeholder={
+                  otherTypes.length === 0
+                    ? "No salary types yet"
+                    : "Select from the list →"
+                }
+              />
+            </div>
+          )}
           {!isOther && (
-            <>
-              <div className="grid grid-cols-3 gap-3">
-                <div className="flex flex-col gap-1.5">
-                  <Label
-                    htmlFor="salary-hour"
-                    className="flex items-baseline justify-between gap-2"
-                  >
-                    <span>Hour</span>
-                    {draft.type === "monthly" && (
-                      <span className="text-xs font-normal text-muted-foreground">
-                        d/{HOURS_PER_DAY}
-                      </span>
-                    )}
-                  </Label>
-                  <Input
-                    id="salary-hour"
-                    type="money"
-                    value={
-                      hourEditable ? format(draft.hour) : format2dp(draft.hour)
-                    }
-                    onChange={(e) => setHour(e.target.value)}
-                    readOnly={!hourEditable}
-                    clearable
-                  />
-                </div>
-                <div className="flex flex-col gap-1.5">
-                  <Label
-                    htmlFor="salary-day"
-                    className="flex items-baseline justify-between gap-2"
-                  >
-                    <span>Day</span>
-                    <span className="text-xs font-normal text-muted-foreground">
-                      {draft.type === "hour"
-                        ? `hx${HOURS_PER_DAY}`
-                        : `m/${rates.daysPerMonth}`}
-                    </span>
-                  </Label>
-                  <Input
-                    id="salary-day"
-                    type="money"
-                    value={format2dp(draft.day)}
-                    readOnly
-                    clearable
-                  />
-                </div>
-                <div className="flex flex-col gap-1.5">
-                  {draft.type === "hour" ? (
-                    <>
-                      <Label
-                        htmlFor="salary-week"
-                        className="flex items-baseline justify-between gap-2"
-                      >
-                        <span>Week</span>
-                        <span className="text-xs font-normal text-muted-foreground">
-                          hx{rates.hoursPerWeek}
-                        </span>
-                      </Label>
-                      <Input
-                        id="salary-week"
-                        type="money"
-                        value={format2dp(draft.week)}
-                        readOnly
-                        clearable
-                      />
-                    </>
-                  ) : (
-                    <>
-                      <Label htmlFor="salary-month">Monthly</Label>
-                      <Input
-                        id="salary-month"
-                        type="money"
-                        value={
-                          monthEditable
-                            ? format(draft.month)
-                            : format2dp(draft.month)
-                        }
-                        onChange={(e) => setMonth(e.target.value)}
-                        readOnly={!monthEditable}
-                        clearable
-                      />
-                    </>
-                  )}
-                </div>
-              </div>
-
-              <div className="grid grid-cols-3 gap-3">
-                <div className="flex flex-col gap-1.5">
-                  <Label
-                    htmlFor="salary-ot"
-                    className="flex items-center justify-between gap-2"
-                  >
-                    <span className="flex min-w-0 items-center gap-1.5">
-                      <Checkbox
-                        id="salary-ot-enabled"
-                        checked={enabledRates.overtime}
-                        onCheckedChange={(c) =>
-                          setRateEnabled("overtime", c === true)
-                        }
-                      />
-                      <span className="truncate">Overtime</span>
-                    </span>
-                    <span className="text-xs font-normal text-muted-foreground">
-                      hx{rates.otRate}
-                    </span>
-                  </Label>
-                  <Input
-                    id="salary-ot"
-                    type="money"
-                    value={enabledRates.overtime ? format2dp(ot) : ""}
-                    readOnly
-                    disabled={!enabledRates.overtime}
-                    clearable
-                  />
-                </div>
-                <div className="flex flex-col gap-1.5">
-                  <Label
-                    htmlFor="salary-rd"
-                    className="flex items-center justify-between gap-2"
-                  >
-                    <span className="flex min-w-0 items-center gap-1.5">
-                      <Checkbox
-                        id="salary-rd-enabled"
-                        checked={enabledRates.restday}
-                        onCheckedChange={(c) =>
-                          setRateEnabled("restday", c === true)
-                        }
-                      />
-                      <span className="truncate">Restday</span>
-                    </span>
-                    <span className="text-xs font-normal text-muted-foreground">
-                      hx{rates.rdRate}
-                    </span>
-                  </Label>
-                  <Input
-                    id="salary-rd"
-                    type="money"
-                    value={enabledRates.restday ? format2dp(rd) : ""}
-                    readOnly
-                    disabled={!enabledRates.restday}
-                    clearable
-                  />
-                </div>
-                <div className="flex flex-col gap-1.5">
-                  <Label
-                    htmlFor="salary-ph"
-                    className="flex items-center justify-between gap-2"
-                  >
-                    <span className="flex min-w-0 items-center gap-1.5">
-                      <Checkbox
-                        id="salary-ph-enabled"
-                        checked={enabledRates.holiday}
-                        onCheckedChange={(c) =>
-                          setRateEnabled("holiday", c === true)
-                        }
-                      />
-                      <span className="truncate">Holiday</span>
-                    </span>
-                    <span className="text-xs font-normal text-muted-foreground">
-                      hx{rates.phRate}
-                    </span>
-                  </Label>
-                  <Input
-                    id="salary-ph"
-                    type="money"
-                    value={enabledRates.holiday ? format2dp(ph) : ""}
-                    readOnly
-                    disabled={!enabledRates.holiday}
-                    clearable
-                  />
-                </div>
-              </div>
-            </>
+            <div className="flex flex-col gap-1.5">
+              <div className="text-sm font-medium">Basic</div>
+              <Table>
+                <TableBody>
+                  {LEFT_ROWS.map((row) => (
+                    <TableRow key={row.key}>
+                      <TableCell>
+                        <Label htmlFor={row.inputId} className="font-normal">
+                          {row.label}
+                        </Label>
+                      </TableCell>
+                      <TableCell className="text-center text-xs text-muted-foreground">
+                        {row.hint ?? ""}
+                      </TableCell>
+                      <TableCell className="w-36">
+                        <Input
+                          id={row.inputId}
+                          type="money"
+                          value={
+                            row.editable
+                              ? format(row.value)
+                              : format2dp(row.value)
+                          }
+                          onChange={
+                            row.onChange
+                              ? (e) => row.onChange!(e.target.value)
+                              : undefined
+                          }
+                          readOnly={!row.editable}
+                          clearable
+                        />
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
           )}
         </div>
+        <Separator orientation="vertical" className="h-auto" />
+        {isOther ? (
+          <div className="flex flex-1 flex-col gap-1.5">
+            <div className="flex items-center gap-2">
+              <div className="text-sm font-medium">Salary types</div>
+              {onAddOtherType && (
+                <Button type="button" size="xs" onClick={onAddOtherType}>
+                  <PlusIcon /> Add
+                </Button>
+              )}
+            </div>
+            <div className="max-h-80 overflow-y-auto rounded-md border">
+              {otherTypes.length === 0 ? (
+                <div className="p-3 text-sm text-muted-foreground">
+                  No salary types yet.
+                </div>
+              ) : (
+                <Table>
+                  <TableBody>
+                    {otherTypes.map((t) => (
+                      <TableRow
+                        key={t.id}
+                        onClick={() => setOtherTypeId(t.id)}
+                        className={cn(
+                          "cursor-pointer hover:bg-muted",
+                          t.id === draft.otherTypeId && "bg-accent",
+                        )}
+                      >
+                        <TableCell>{t.name}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </div>
+          </div>
+        ) : (
+          <div className="flex flex-1 flex-col gap-1.5">
+            <div className="text-sm font-medium">Multiplier table</div>
+            <Table>
+              <TableBody>
+                {RATE_ROWS.filter((r) => r.areaEnabled).map((r) => {
+                const enabled = enabledRates[r.key];
+                const value = computeRate(r.multiplier);
+                return (
+                  <TableRow key={r.key}>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <Checkbox
+                          id={r.checkboxId}
+                          checked={enabled}
+                          onCheckedChange={(c) =>
+                            setRateEnabled(r.key, c === true)
+                          }
+                        />
+                        <Label
+                          htmlFor={r.checkboxId}
+                          className="font-normal"
+                        >
+                          {r.label}
+                        </Label>
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-center text-xs text-muted-foreground">
+                      {r.multiplier}x
+                      {draft.hour !== null ? format2dp(draft.hour) : ""}
+                    </TableCell>
+                    <TableCell className="w-36">
+                      <div className="flex items-center gap-1">
+                        <Input
+                          id={r.inputId}
+                          type="money"
+                          value={enabled ? format2dp(value) : ""}
+                          readOnly
+                          disabled={!enabled}
+                          clearable
+                        />
+                        <span className="text-xs text-muted-foreground">
+                          /h
+                        </span>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </div>
+        )}
+      </div>
 
-        <DialogFooter>
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => onOpenChange(false)}
-          >
-            Cancel
-          </Button>
-          <Button
-            type="button"
-            onClick={() => {
-              onSave(buildNextDraft());
-              onOpenChange(false);
-            }}
-          >
-            Save
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+      <DialogFooter>
+        <Button type="button" variant="outline" onClick={onCancel}>
+          Cancel
+        </Button>
+        <Button type="button" onClick={() => onSave(buildNextDraft())}>
+          Save
+        </Button>
+      </DialogFooter>
+    </>
   );
 }

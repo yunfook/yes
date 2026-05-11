@@ -81,13 +81,24 @@ export const areaSetting = pgTable("area_setting", {
   areaId: integer("area_id")
     .primaryKey()
     .references(() => areas.id, { onDelete: "cascade" }),
-  otRate: real("ot_rate").notNull().default(1.5),
-  rdRate: real("rd_rate").notNull().default(2),
-  phRate: real("ph_rate").notNull().default(3),
   hoursPerWeek: real("hours_per_week").notNull().default(45),
   daysPerMonth: real("days_per_month").notNull().default(24),
   workStart: text("work_start").notNull().default("07:00"),
   workEnd: text("work_end").notNull().default("16:00"),
+});
+
+export const payMultiplier = pgTable("pay_multiplier", {
+  areaId: integer("area_id")
+    .primaryKey()
+    .references(() => areas.id, { onDelete: "cascade" }),
+  hasOt: boolean("has_ot").notNull().default(true),
+  otRate: real("ot_rate").notNull().default(1.5),
+  hasRd: boolean("has_rd").notNull().default(true),
+  rdRate: real("rd_rate").notNull().default(2),
+  hasPh: boolean("has_ph").notNull().default(true),
+  phRate: real("ph_rate").notNull().default(3),
+  hasDbl: boolean("has_dbl").notNull().default(false),
+  hasTpl: boolean("has_tpl").notNull().default(false),
 });
 
 export const employeeForm = pgTable("employee_form", {
@@ -129,8 +140,6 @@ export const employees = pgTable("employees", {
   restday: text("restday").array(),
   salaryType: text("salary_type"),
   salaryHour: real("salary_hour"),
-  salaryDay: real("salary_day"),
-  salaryWeek: real("salary_week"),
   salaryMonth: real("salary_month"),
   otherSalaryTypeId: integer("other_salary_type_id").references(
     () => otherSalaryType.id,
@@ -139,6 +148,10 @@ export const employees = pgTable("employees", {
   hasOvertime: boolean("has_overtime"),
   hasRestday: boolean("has_restday"),
   hasHoliday: boolean("has_holiday"),
+  hasDouble: boolean("has_double"),
+  hasTriple: boolean("has_triple"),
+  hoursPerDay: real("hours_per_day"),
+  daysPerMonth: real("days_per_month"),
   breakType: breakTypeEnum("break_type"),
   mondayStart: text("monday_start"),
   mondayEnd: text("monday_end"),

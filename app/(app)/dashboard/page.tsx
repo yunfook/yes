@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { and, eq, isNull, sql } from "drizzle-orm";
 import { BriefcaseIcon, Building2Icon, UsersIcon } from "lucide-react";
 import {
@@ -59,6 +60,39 @@ function StatCard({
   );
 }
 
+function StatCardSkeleton() {
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <div className="h-4 w-32 animate-pulse rounded bg-muted" />
+      </CardHeader>
+      <CardContent>
+        <div className="h-8 w-16 animate-pulse rounded bg-muted" />
+      </CardContent>
+    </Card>
+  );
+}
+
+function StatsSkeleton() {
+  return (
+    <div className="grid gap-4 md:grid-cols-3">
+      <StatCardSkeleton />
+      <StatCardSkeleton />
+      <StatCardSkeleton />
+    </div>
+  );
+}
+
+function ChartsSkeleton() {
+  return (
+    <div className="grid gap-4 md:grid-cols-2">
+      {Array.from({ length: 6 }).map((_, i) => (
+        <div key={i} className="h-[260px] animate-pulse rounded-md bg-muted" />
+      ))}
+    </div>
+  );
+}
+
 export default async function DashboardPage({
   searchParams,
 }: {
@@ -78,15 +112,65 @@ export default async function DashboardPage({
   }
   await assertCanAccessArea(session, currentAreaId);
 
-  const [areaRow, empRows, depts, poss] = await Promise.all([
+  const areaRow = await db
+    .select({ name: areasTable.name })
+    .from(areasTable)
+    .where(and(eq(areasTable.id, currentAreaId), isNull(areasTable.deletedAt)))
+    .limit(1)
+    .then((r) => r[0] ?? null);
+
+  return (
+    <div className="flex flex-col gap-6">
+      <div>
+        <h1 className="text-2xl font-semibold text-foreground">
+          Dashboard - {areaRow?.name ?? "—"}
+        </h1>
+        <p className="text-sm text-muted-foreground">
+          Live snapshot of the selected area.
+        </p>
+      </div>
+
+      <Suspense fallback={<StatsSkeleton />}>
+        <Stats areaId={currentAreaId} />
+      </Suspense>
+
+      <Suspense fallback={<ChartsSkeleton />}>
+        <Charts areaId={currentAreaId} />
+      </Suspense>
+    </div>
+  );
+}
+
+async function Stats({ areaId }: { areaId: number }) {
+  const [empCount, deptCount, posCount] = await Promise.all([
     db
-      .select({ name: areasTable.name })
-      .from(areasTable)
-      .where(
-        and(eq(areasTable.id, currentAreaId), isNull(areasTable.deletedAt)),
-      )
-      .limit(1)
-      .then((r) => r[0] ?? null),
+      .select({ c: sql<number>`count(*)::int` })
+      .from(employees)
+      .where(and(eq(employees.areaId, areaId), isNull(employees.deletedAt)))
+      .then((r) => r[0]?.c ?? 0),
+    db
+      .select({ c: sql<number>`count(*)::int` })
+      .from(departments)
+      .where(and(eq(departments.areaId, areaId), isNull(departments.deletedAt)))
+      .then((r) => r[0]?.c ?? 0),
+    db
+      .select({ c: sql<number>`count(*)::int` })
+      .from(positions)
+      .where(and(eq(positions.areaId, areaId), isNull(positions.deletedAt)))
+      .then((r) => r[0]?.c ?? 0),
+  ]);
+
+  return (
+    <div className="grid gap-4 md:grid-cols-3">
+      <StatCard title="Total employees" value={empCount} icon={UsersIcon} />
+      <StatCard title="Total departments" value={deptCount} icon={Building2Icon} />
+      <StatCard title="Total positions" value={posCount} icon={BriefcaseIcon} />
+    </div>
+  );
+}
+
+async function Charts({ areaId }: { areaId: number }) {
+  const [empRows, deptTotal, posTotal] = await Promise.all([
     db
       .select({
         gender: employees.gender,
@@ -105,24 +189,19 @@ export default async function DashboardPage({
         otherSalaryType,
         eq(otherSalaryType.id, employees.otherSalaryTypeId),
       )
-      .where(
-        and(eq(employees.areaId, currentAreaId), isNull(employees.deletedAt)),
-      ),
+      .where(and(eq(employees.areaId, areaId), isNull(employees.deletedAt))),
     db
-      .select({ id: departments.id })
+      .select({ c: sql<number>`count(*)::int` })
       .from(departments)
       .where(
-        and(
-          eq(departments.areaId, currentAreaId),
-          isNull(departments.deletedAt),
-        ),
-      ),
+        and(eq(departments.areaId, areaId), isNull(departments.deletedAt)),
+      )
+      .then((r) => r[0]?.c ?? 0),
     db
-      .select({ id: positions.id })
+      .select({ c: sql<number>`count(*)::int` })
       .from(positions)
-      .where(
-        and(eq(positions.areaId, currentAreaId), isNull(positions.deletedAt)),
-      ),
+      .where(and(eq(positions.areaId, areaId), isNull(positions.deletedAt)))
+      .then((r) => r[0]?.c ?? 0),
   ]);
 
   const gender: Record<string, number> = { Male: 0, Female: 0, "Not set": 0 };
@@ -180,35 +259,10 @@ export default async function DashboardPage({
   };
 
   return (
-    <div className="flex flex-col gap-6">
-      <div>
-        <h1 className="text-2xl font-semibold text-foreground">
-          Dashboard - {areaRow?.name ?? "—"}
-        </h1>
-        <p className="text-sm text-muted-foreground">
-          Live snapshot of the selected area.
-        </p>
-      </div>
-
-      <div className="grid gap-4 md:grid-cols-3">
-        <StatCard
-          title="Total employees"
-          value={empRows.length}
-          icon={UsersIcon}
-        />
-        <StatCard
-          title="Total departments"
-          value={depts.length}
-          icon={Building2Icon}
-        />
-        <StatCard
-          title="Total positions"
-          value={poss.length}
-          icon={BriefcaseIcon}
-        />
-      </div>
-
-      <DashboardCharts data={data} />
-    </div>
+    <DashboardCharts
+      data={data}
+      deptTotal={deptTotal}
+      posTotal={posTotal}
+    />
   );
 }

@@ -7,6 +7,7 @@ import {
   assertCanAccessArea,
 } from "@/lib/authz";
 import { EmployeesClient } from "./employees-client";
+import { listEmployeesByArea } from "./actions";
 
 export default async function EmployeesPage({
   searchParams,
@@ -28,11 +29,15 @@ export default async function EmployeesPage({
 
   await assertCanAccessArea(session, currentAreaId);
 
-  const [areaRow] = await db
-    .select()
-    .from(areas)
-    .where(and(eq(areas.id, currentAreaId), isNull(areas.deletedAt)))
-    .limit(1);
+  const [areaRow, initialEmployees] = await Promise.all([
+    db
+      .select()
+      .from(areas)
+      .where(and(eq(areas.id, currentAreaId), isNull(areas.deletedAt)))
+      .limit(1)
+      .then((r) => r[0] ?? null),
+    listEmployeesByArea(currentAreaId),
+  ]);
 
   return (
     <div className="flex flex-col gap-4">
@@ -44,7 +49,7 @@ export default async function EmployeesPage({
           Filterable, sortable. Switch areas in the sidebar.
         </p>
       </div>
-      <EmployeesClient areaId={currentAreaId} />
+      <EmployeesClient areaId={currentAreaId} initialData={initialEmployees} />
     </div>
   );
 }

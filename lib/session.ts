@@ -1,4 +1,5 @@
 import "server-only";
+import { cache } from "react";
 import { SignJWT, jwtVerify } from "jose";
 import { cookies } from "next/headers";
 
@@ -56,9 +57,11 @@ export async function destroySession() {
   cookieStore.delete(SESSION_COOKIE);
 }
 
-export async function getSession(): Promise<SessionPayload | null> {
-  const cookieStore = await cookies();
-  return decrypt(cookieStore.get(SESSION_COOKIE)?.value);
-}
+export const getSession = cache(
+  async (): Promise<SessionPayload | null> => {
+    const cookieStore = await cookies();
+    return decrypt(cookieStore.get(SESSION_COOKIE)?.value);
+  },
+);
 
 export const SESSION_COOKIE_NAME = SESSION_COOKIE;

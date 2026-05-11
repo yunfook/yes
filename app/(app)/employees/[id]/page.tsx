@@ -7,6 +7,7 @@ import {
   positions,
   departments,
   areaSetting,
+  payMultiplier,
   otherSalaryType,
 } from "@/db/schema";
 import { Button } from "@/components/ui/button";
@@ -30,10 +31,15 @@ import {
 } from "lucide-react";
 import { requireSession, assertCanAccessArea } from "@/lib/authz";
 import {
+  BREAK_SESSION_CLASS,
+  RESTDAY_COLUMN_CLASS,
   Timetable,
+  WORK_SESSION_CLASS,
   type DayKey,
   type TimetableSession,
 } from "@/components/ui/timetable";
+import { Table, TableBody, TableCell, TableRow } from "@/components/ui/table";
+import { Separator } from "@/components/ui/separator";
 
 const SALARY_TYPE_LABEL: Record<string, string> = {
   hour: "Hour based",
@@ -102,30 +108,19 @@ function formatMoney(n: number | null): string {
   });
 }
 
-function CurrencyField({
-  label,
-  hint,
-  value,
-}: {
-  label: string;
-  hint?: string;
-  value: number | null;
-}) {
-  return (
-    <div className="flex flex-col gap-1.5">
-      <div className="flex items-baseline justify-between gap-2 text-sm">
-        <span>{label}</span>
-        {hint && (
-          <span className="text-xs font-normal text-muted-foreground">
-            {hint}
-          </span>
-        )}
-      </div>
-      <div className="rounded-md border bg-muted/30 px-3 py-2 text-sm tabular-nums">
-        {formatMoney(value)}
-      </div>
-    </div>
-  );
+function formatRm(n: number | null): string {
+  if (n == null) return "—";
+  return `RM ${formatMoney(n)}`;
+}
+
+function round2(n: number): number {
+  return Math.round(n * 100) / 100;
+}
+
+function fmtRaw(n: number | null): string {
+  if (n == null) return "";
+  if (Number.isInteger(n)) return String(n);
+  return n.toFixed(2).replace(/\.?0+$/, "");
 }
 
 function parseHM(s: string): number {
@@ -172,25 +167,22 @@ function dayToSessions(
   if (we <= ws) return [];
   const weLabel = endLabel(workEnd);
   if (breakType === "none" || !breakStart) {
-    return [{ day, start: workStart, end: weLabel, title: "Work" }];
+    return [
+      { day, start: workStart, end: weLabel, title: "Work", className: WORK_SESSION_CLASS },
+    ];
   }
   const bs = parseHM(breakStart);
   const breakEnd = addMinutes(breakStart, breakMinutes(breakType));
   const be = parseHM(breakEnd);
   if (be <= bs || bs < ws || be > we) {
-    return [{ day, start: workStart, end: weLabel, title: "Work" }];
+    return [
+      { day, start: workStart, end: weLabel, title: "Work", className: WORK_SESSION_CLASS },
+    ];
   }
   return [
-    { day, start: workStart, end: breakStart, title: "Work" },
-    {
-      day,
-      start: breakStart,
-      end: breakEnd,
-      title: "Break",
-      className:
-        "bg-yellow-50 border-yellow-200 dark:bg-yellow-900/30 dark:border-yellow-800",
-    },
-    { day, start: breakEnd, end: weLabel, title: "Work" },
+    { day, start: workStart, end: breakStart, title: "Work", className: WORK_SESSION_CLASS },
+    { day, start: breakStart, end: breakEnd, title: "Break", className: BREAK_SESSION_CLASS },
+    { day, start: breakEnd, end: weLabel, title: "Work", className: WORK_SESSION_CLASS },
   ];
 }
 
@@ -223,13 +215,15 @@ export default async function EmployeeDetailPage({
       areaId: employees.areaId,
       salaryType: employees.salaryType,
       salaryHour: employees.salaryHour,
-      salaryDay: employees.salaryDay,
-      salaryWeek: employees.salaryWeek,
       salaryMonth: employees.salaryMonth,
       otherSalaryTypeName: otherSalaryType.name,
       hasOvertime: employees.hasOvertime,
       hasRestday: employees.hasRestday,
       hasHoliday: employees.hasHoliday,
+      hasDouble: employees.hasDouble,
+      hasTriple: employees.hasTriple,
+      hoursPerDay: employees.hoursPerDay,
+      daysPerMonth: employees.daysPerMonth,
       restday: employees.restday,
       breakType: employees.breakType,
       mondayStart: employees.mondayStart,
@@ -253,14 +247,15 @@ export default async function EmployeeDetailPage({
       sundayStart: employees.sundayStart,
       sundayEnd: employees.sundayEnd,
       sundayBreak: employees.sundayBreak,
-      otRate: areaSetting.otRate,
-      rdRate: areaSetting.rdRate,
-      phRate: areaSetting.phRate,
+      otRate: payMultiplier.otRate,
+      rdRate: payMultiplier.rdRate,
+      phRate: payMultiplier.phRate,
     })
     .from(employees)
     .leftJoin(positions, eq(positions.id, employees.positionId))
     .leftJoin(departments, eq(departments.id, employees.departmentId))
     .leftJoin(areaSetting, eq(areaSetting.areaId, employees.areaId))
+    .leftJoin(payMultiplier, eq(payMultiplier.areaId, employees.areaId))
     .leftJoin(
       otherSalaryType,
       eq(otherSalaryType.id, employees.otherSalaryTypeId),
@@ -279,12 +274,16 @@ export default async function EmployeeDetailPage({
   const otRate = row.otRate ?? 1.5;
   const rdRate = row.rdRate ?? 2;
   const phRate = row.phRate ?? 3;
-  const ot =
-    row.salaryHour != null && row.hasOvertime ? row.salaryHour * otRate : null;
-  const rd =
-    row.salaryHour != null && row.hasRestday ? row.salaryHour * rdRate : null;
-  const ph =
-    row.salaryHour != null && row.hasHoliday ? row.salaryHour * phRate : null;
+  const showOt = row.hasOvertime === true;
+  const showRd = row.hasRestday === true;
+  const showPh = row.hasHoliday === true;
+  const showDb = row.hasDouble === true;
+  const showTp = row.hasTriple === true;
+  const ot = row.salaryHour != null && showOt ? row.salaryHour * otRate : null;
+  const rd = row.salaryHour != null && showRd ? row.salaryHour * rdRate : null;
+  const ph = row.salaryHour != null && showPh ? row.salaryHour * phRate : null;
+  const dbl = row.salaryHour != null && showDb ? row.salaryHour * 2 : null;
+  const tpl = row.salaryHour != null && showTp ? row.salaryHour * 3 : null;
 
   const restdaySet = new Set(row.restday ?? []);
   const breakType: BreakType = (row.breakType as BreakType | null) ?? "1h";
@@ -329,6 +328,30 @@ export default async function EmployeeDetailPage({
       ? []
       : dayToSessions(d, dayData[d].start, dayData[d].end, dayData[d].brk, breakType),
   );
+  const dayClassName: Partial<Record<DayKey, string>> = Object.fromEntries(
+    ALL_DAYS.filter((d) => restdaySet.has(d)).map((d) => [d, RESTDAY_COLUMN_CLASS]),
+  );
+
+  const activeStarts: number[] = [];
+  const activeEnds: number[] = [];
+  for (const d of ALL_DAYS) {
+    if (restdaySet.has(d)) continue;
+    const s = dayData[d].start;
+    const e = dayData[d].end;
+    if (s) activeStarts.push(parseHM(s));
+    if (e) activeEnds.push(endMinutes(e));
+  }
+  const PAD = 2 * 60;
+  const startMin =
+    activeStarts.length > 0
+      ? Math.max(0, Math.min(...activeStarts) - PAD)
+      : 0;
+  const endMin =
+    activeEnds.length > 0
+      ? Math.min(23 * 60, Math.max(...activeEnds) + PAD)
+      : 23 * 60;
+  const tableStartTime = `${pad(Math.floor(startMin / 60))}:${pad(startMin % 60)}`;
+  const tableEndTime = `${pad(Math.floor(endMin / 60))}:${pad(endMin % 60)}`;
 
   return (
     <div className="flex flex-col gap-4">
@@ -354,7 +377,10 @@ export default async function EmployeeDetailPage({
       </div>
 
       <Card>
-        <CardContent className="pt-6">
+        <CardHeader>
+          <CardTitle>Information</CardTitle>
+        </CardHeader>
+        <CardContent>
           <dl className="grid gap-4 sm:grid-cols-2">
             <InfoField
               icon={PhoneIcon}
@@ -398,43 +424,137 @@ export default async function EmployeeDetailPage({
             <CardTitle>Salary</CardTitle>
           </CardHeader>
           <CardContent>
-            {row.salaryType == null ? (
-              <p className="text-sm text-muted-foreground">—</p>
-            ) : row.salaryType === "other" ? (
-              <div className="text-sm font-medium">
-                {SALARY_TYPE_LABEL.other} : {row.otherSalaryTypeName ?? "—"}
-              </div>
-            ) : (
-              <div className="flex flex-col gap-3">
-                <div className="text-sm font-medium">
-                  {SALARY_TYPE_LABEL[row.salaryType] ?? row.salaryType}
+            {(() => {
+              if (row.salaryType == null) {
+                return <p className="text-sm text-muted-foreground">—</p>;
+              }
+              if (row.salaryType === "other") {
+                return (
+                  <div className="text-sm">
+                    <span className="font-medium">
+                      {SALARY_TYPE_LABEL.other}:{" "}
+                    </span>
+                    {row.otherSalaryTypeName ?? "—"}
+                  </div>
+                );
+              }
+              const hpd = row.hoursPerDay;
+              const dpm = row.daysPerMonth;
+              const dayValue =
+                row.salaryType === "hour"
+                  ? row.salaryHour != null && hpd != null
+                    ? round2(row.salaryHour * hpd)
+                    : null
+                  : row.salaryMonth != null && dpm != null
+                    ? round2(row.salaryMonth / dpm)
+                    : null;
+              const hourStr = fmtRaw(row.salaryHour);
+              const dayStr = fmtRaw(dayValue);
+              const monthStr = fmtRaw(row.salaryMonth);
+              const basicRows =
+                row.salaryType === "hour"
+                  ? [
+                      { label: "Hour", hint: "", value: row.salaryHour },
+                      hpd != null && {
+                        label: "Day",
+                        hint: hourStr ? `${hourStr}x${hpd}` : `h×${hpd}`,
+                        value: dayValue,
+                      },
+                    ].filter(Boolean) as {
+                      label: string;
+                      hint: string;
+                      value: number | null;
+                    }[]
+                  : ([
+                      { label: "Monthly", hint: "", value: row.salaryMonth },
+                      dpm != null && {
+                        label: "Day",
+                        hint: monthStr ? `${monthStr}/${dpm}` : `m/${dpm}`,
+                        value: dayValue,
+                      },
+                      hpd != null && {
+                        label: "Hour",
+                        hint: dayStr ? `${dayStr}/${hpd}` : `d/${hpd}`,
+                        value: row.salaryHour,
+                      },
+                    ].filter(Boolean) as {
+                      label: string;
+                      hint: string;
+                      value: number | null;
+                    }[]);
+              const allMultiplierRows = [
+                {
+                  show: showOt,
+                  label: "Overtime",
+                  hint: hourStr ? `${hourStr}x${otRate}` : `hx${otRate}`,
+                  value: ot,
+                },
+                {
+                  show: showRd,
+                  label: "Restday",
+                  hint: hourStr ? `${hourStr}x${rdRate}` : `hx${rdRate}`,
+                  value: rd,
+                },
+                {
+                  show: showPh,
+                  label: "Public Holiday",
+                  hint: hourStr ? `${hourStr}x${phRate}` : `hx${phRate}`,
+                  value: ph,
+                },
+                {
+                  show: showDb,
+                  label: "Double pay",
+                  hint: hourStr ? `${hourStr}x2` : `hx2`,
+                  value: dbl,
+                },
+                {
+                  show: showTp,
+                  label: "Triple pay",
+                  hint: hourStr ? `${hourStr}x3` : `hx3`,
+                  value: tpl,
+                },
+              ];
+              const multiplierRows = allMultiplierRows.filter((r) => r.show);
+              const renderTable = (
+                title: string,
+                rows: { label: string; hint: string; value: number | null }[],
+              ) => (
+                <div className="flex flex-col gap-1.5">
+                  <div className="text-sm font-medium">{title}</div>
+                  <Table className="table-fixed">
+                    <TableBody>
+                      {rows.map((r) => (
+                        <TableRow key={r.label}>
+                          <TableCell className="w-1/3 font-normal">
+                            {r.label}
+                          </TableCell>
+                          <TableCell className="w-1/3 text-center text-xs text-muted-foreground">
+                            {r.hint}
+                          </TableCell>
+                          <TableCell className="w-1/3 text-right tabular-nums">
+                            {formatRm(r.value)}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
                 </div>
-                <div className="grid grid-cols-3 gap-2">
-                  <CurrencyField label="Hour" value={row.salaryHour} />
-                  <CurrencyField label="Day" value={row.salaryDay} />
-                  {row.salaryType === "hour" ? (
-                    <CurrencyField label="Week" value={row.salaryWeek} />
-                  ) : (
-                    <CurrencyField label="Monthly" value={row.salaryMonth} />
+              );
+              return (
+                <div className="flex flex-col gap-4">
+                  {renderTable(
+                    SALARY_TYPE_LABEL[row.salaryType] ?? row.salaryType,
+                    basicRows,
                   )}
-                  <CurrencyField
-                    label="Overtime"
-                    hint={`hx${otRate}`}
-                    value={ot}
-                  />
-                  <CurrencyField
-                    label="Restday"
-                    hint={`hx${rdRate}`}
-                    value={rd}
-                  />
-                  <CurrencyField
-                    label="Public Holiday"
-                    hint={`hx${phRate}`}
-                    value={ph}
-                  />
+                  {multiplierRows.length > 0 && (
+                    <>
+                      <Separator />
+                      {renderTable("Multiplier", multiplierRows)}
+                    </>
+                  )}
                 </div>
-              </div>
-            )}
+              );
+            })()}
           </CardContent>
         </Card>
 
@@ -447,11 +567,12 @@ export default async function EmployeeDetailPage({
               <p className="text-sm text-muted-foreground">—</p>
             ) : (
               <Timetable
-                startTime="00:00"
-                endTime="23:00"
+                startTime={tableStartTime}
+                endTime={tableEndTime}
                 minutesPerRow={60}
-                rowHeight={22}
+                rowHeight={26}
                 sessions={sessions}
+                dayClassName={dayClassName}
                 fluid
                 timeOnLine
                 className="max-h-[24rem]"

@@ -11,12 +11,16 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { MultiSelect } from "@/components/ui/multi-select";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { HourPicker } from "@/components/form/wheel-pickers";
+import { BreakPicker, HourPicker } from "@/components/form/wheel-pickers";
 import {
+  BREAK_SESSION_CLASS,
+  RESTDAY_COLUMN_CLASS,
   Timetable,
+  WORK_SESSION_CLASS,
   type DayKey,
   type TimetableSession,
 } from "@/components/ui/timetable";
@@ -117,6 +121,18 @@ function endLabel(time: string): string {
   return time === "00:00" ? "24:00" : time;
 }
 
+function workingHours(s: DaySchedule, breakType: BreakType): number {
+  const total = endMinutes(s.workEnd) - parseHM(s.workStart);
+  const brk =
+    breakType !== "none" && s.breakEnabled ? breakMinutes(breakType) : 0;
+  return Math.max(0, total - brk) / 60;
+}
+
+function fmtHours(h: number): string {
+  if (Number.isInteger(h)) return String(h);
+  return h.toFixed(2).replace(/\.?0+$/, "");
+}
+
 function isDayValid(s: DaySchedule): boolean {
   return endMinutes(s.workEnd) > parseHM(s.workStart);
 }
@@ -131,25 +147,22 @@ function dayToSessions(
   if (we <= ws) return [];
   const weLabel = endLabel(s.workEnd);
   if (breakType === "none" || !s.breakEnabled) {
-    return [{ day, start: s.workStart, end: weLabel, title: "Work" }];
+    return [
+      { day, start: s.workStart, end: weLabel, title: "Work", className: WORK_SESSION_CLASS },
+    ];
   }
   const bs = parseHM(s.breakStart);
   const breakEnd = addMinutes(s.breakStart, breakMinutes(breakType));
   const be = parseHM(breakEnd);
   if (be <= bs || bs < ws || be > we) {
-    return [{ day, start: s.workStart, end: weLabel, title: "Work" }];
+    return [
+      { day, start: s.workStart, end: weLabel, title: "Work", className: WORK_SESSION_CLASS },
+    ];
   }
   return [
-    { day, start: s.workStart, end: s.breakStart, title: "Work" },
-    {
-      day,
-      start: s.breakStart,
-      end: breakEnd,
-      title: "Break",
-      className:
-        "bg-yellow-50 border-yellow-200 dark:bg-yellow-900/30 dark:border-yellow-800",
-    },
-    { day, start: breakEnd, end: weLabel, title: "Work" },
+    { day, start: s.workStart, end: s.breakStart, title: "Work", className: WORK_SESSION_CLASS },
+    { day, start: s.breakStart, end: breakEnd, title: "Break", className: BREAK_SESSION_CLASS },
+    { day, start: breakEnd, end: weLabel, title: "Work", className: WORK_SESSION_CLASS },
   ];
 }
 
@@ -188,23 +201,32 @@ export function WorkingScheduleDialog({
   }, [open, value, wStart, wEnd]);
 
   const selectedRest = restday;
-  const hasNone = selectedRest.includes("none");
   const items: { value: RestdayValue; label: string; disabled?: boolean }[] = [
     { value: "none", label: "No Restday" },
-    { value: "monday", label: "Monday", disabled: hasNone },
-    { value: "tuesday", label: "Tuesday", disabled: hasNone },
-    { value: "wednesday", label: "Wednesday", disabled: hasNone },
-    { value: "thursday", label: "Thursday", disabled: hasNone },
-    { value: "friday", label: "Friday", disabled: hasNone },
-    { value: "saturday", label: "Saturday", disabled: hasNone },
-    { value: "sunday", label: "Sunday", disabled: hasNone },
+    { value: "monday", label: "Monday" },
+    { value: "tuesday", label: "Tuesday" },
+    { value: "wednesday", label: "Wednesday" },
+    { value: "thursday", label: "Thursday" },
+    { value: "friday", label: "Friday" },
+    { value: "saturday", label: "Saturday" },
+    { value: "sunday", label: "Sunday" },
   ];
 
   const setRestday = (next: RestdayValue[]) => {
-    const justAddedNone =
-      next.includes("none") && !selectedRest.includes("none");
-    const final = justAddedNone ? (["none"] as RestdayValue[]) : next;
-    setRestdayState(final);
+    const wasNone = selectedRest.includes("none");
+    const hasNoneNow = next.includes("none");
+    const justAddedNone = hasNoneNow && !wasNone;
+    if (justAddedNone) {
+      // Clicking "No Restday" clears all other selections.
+      setRestdayState(["none"]);
+      return;
+    }
+    if (hasNoneNow && next.length > 1) {
+      // Picked another day while "No Restday" was selected — drop "none".
+      setRestdayState(next.filter((v) => v !== "none"));
+      return;
+    }
+    setRestdayState(next);
   };
 
   const restSet = new Set<RestdayValue>(selectedRest);
@@ -213,6 +235,10 @@ export function WorkingScheduleDialog({
 
   const sessions: TimetableSession[] = visibleDays.flatMap((day) =>
     dayToSessions(day, schedules[day], breakType),
+  );
+
+  const dayClassName: Partial<Record<DayKey, string>> = Object.fromEntries(
+    ALL_DAYS.filter((d) => restSet.has(d)).map((d) => [d, RESTDAY_COLUMN_CLASS]),
   );
 
   const hasInvalidDay = visibleDays.some((d) => !isDayValid(schedules[d]));
@@ -239,7 +265,8 @@ export function WorkingScheduleDialog({
             rowHeight={26}
             fluid
             timeOnLine
-            days={visibleDays}
+            days={ALL_DAYS}
+            dayClassName={dayClassName}
             sessions={sessions}
             className="max-h-[34rem] overflow-auto"
           />
@@ -341,13 +368,30 @@ export function WorkingScheduleDialog({
                               Break
                             </Label>
                           </div>
-                          <HourPicker
+                          <BreakPicker
                             value={s.breakStart}
                             onChange={(v) => updateDay(day, { breakStart: v })}
-                            disabled={!s.breakEnabled}
+                            workStart={s.workStart}
+                            workEnd={s.workEnd}
+                            breakType={breakType as Exclude<BreakType, "none">}
+                            disabled={!s.breakEnabled || !valid}
                           />
                         </div>
                       )}
+                      <div className="flex flex-col gap-1">
+                        <span className="text-xs text-muted-foreground">
+                          Total
+                        </span>
+                        <Input
+                          value={
+                            valid
+                              ? `${fmtHours(workingHours(s, breakType))}h`
+                              : "—"
+                          }
+                          readOnly
+                          className="w-20 text-center"
+                        />
+                      </div>
                     </div>
                     {!valid && (
                       <p className="mt-1 text-xs text-destructive">

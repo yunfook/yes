@@ -1,49 +1,62 @@
 import "server-only";
+import { cache } from "react";
 import { redirect } from "next/navigation";
 import { and, eq, isNull } from "drizzle-orm";
 import { db } from "@/db";
 import { userAreas, areas } from "@/db/schema";
 import { getSession, type SessionPayload } from "./session";
 
-export async function requireSession(): Promise<SessionPayload> {
+export const requireSession = cache(async (): Promise<SessionPayload> => {
   const session = await getSession();
   if (!session) redirect("/login");
   return session;
-}
+});
 
-export async function requireAdmin(): Promise<SessionPayload> {
+export const requireAdmin = cache(async (): Promise<SessionPayload> => {
   const session = await requireSession();
   if (!session.isAdmin) redirect("/dashboard");
   return session;
-}
+});
 
-export async function getAccessibleAreas(session: SessionPayload) {
-  if (session.isAdmin) {
+const getAccessibleAreasForUser = cache(
+  async (userId: number, isAdmin: boolean) => {
+    if (isAdmin) {
+      return db
+        .select()
+        .from(areas)
+        .where(isNull(areas.deletedAt))
+        .orderBy(areas.name);
+    }
     return db
-      .select()
+      .select({ id: areas.id, name: areas.name, createdAt: areas.createdAt })
       .from(areas)
-      .where(isNull(areas.deletedAt))
+      .innerJoin(userAreas, eq(userAreas.areaId, areas.id))
+      .where(and(eq(userAreas.userId, userId), isNull(areas.deletedAt)))
       .orderBy(areas.name);
-  }
-  return db
-    .select({ id: areas.id, name: areas.name, createdAt: areas.createdAt })
-    .from(areas)
-    .innerJoin(userAreas, eq(userAreas.areaId, areas.id))
-    .where(and(eq(userAreas.userId, session.userId), isNull(areas.deletedAt)))
-    .orderBy(areas.name);
+  },
+);
+
+export function getAccessibleAreas(session: SessionPayload) {
+  return getAccessibleAreasForUser(session.userId, session.isAdmin);
 }
 
-export async function canAccessArea(
+const canAccessAreaForUser = cache(
+  async (userId: number, isAdmin: boolean, areaId: number) => {
+    if (isAdmin) return true;
+    const rows = await db
+      .select({ areaId: userAreas.areaId })
+      .from(userAreas)
+      .where(and(eq(userAreas.userId, userId), eq(userAreas.areaId, areaId)))
+      .limit(1);
+    return rows.length > 0;
+  },
+);
+
+export function canAccessArea(
   session: SessionPayload,
   areaId: number,
 ): Promise<boolean> {
-  if (session.isAdmin) return true;
-  const rows = await db
-    .select({ areaId: userAreas.areaId })
-    .from(userAreas)
-    .where(and(eq(userAreas.userId, session.userId), eq(userAreas.areaId, areaId)))
-    .limit(1);
-  return rows.length > 0;
+  return canAccessAreaForUser(session.userId, session.isAdmin, areaId);
 }
 
 export async function assertCanAccessArea(

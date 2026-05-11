@@ -99,8 +99,11 @@ export function HourPicker({
   const { h24 } = parseHM(value);
   const { hour, period } = to12(h24);
 
-  const setHour = (h: number) =>
-    onChange(`${pad(from12(h, period))}:00`);
+  const setHour = (h: number) => {
+    const crossing = (hour === 11 && h === 12) || (hour === 12 && h === 11);
+    const nextPeriod = crossing ? (period === "AM" ? "PM" : "AM") : period;
+    onChange(`${pad(from12(h, nextPeriod))}:00`);
+  };
   const setPeriod = (p: "AM" | "PM") =>
     onChange(`${pad(from12(hour, p))}:00`);
 
@@ -176,8 +179,11 @@ export function TimePicker({
 
   const snappedMinute = m - (m % minuteStep);
 
-  const setHour = (h: number) =>
-    onChange(`${pad(from12(h, period))}:${pad(m)}`);
+  const setHour = (h: number) => {
+    const crossing = (hour === 11 && h === 12) || (hour === 12 && h === 11);
+    const nextPeriod = crossing ? (period === "AM" ? "PM" : "AM") : period;
+    onChange(`${pad(from12(h, nextPeriod))}:${pad(m)}`);
+  };
   const setMinute = (mm: number) => onChange(`${pad(h24)}:${pad(mm)}`);
   const setPeriod = (p: "AM" | "PM") =>
     onChange(`${pad(from12(hour, p))}:${pad(m)}`);
@@ -220,6 +226,104 @@ export function TimePicker({
             value={period}
             onValueChange={setPeriod}
             options={PERIOD_OPTIONS}
+          />
+        </WheelPickerWrapper>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// BreakPicker — single wheel constrained to work window + break duration
+// ---------------------------------------------------------------------------
+
+export type BreakPickerType = "30m" | "1h" | "2h";
+
+function breakStepMinutes(t: BreakPickerType): number {
+  if (t === "30m") return 30;
+  if (t === "2h") return 120;
+  return 60;
+}
+
+export function BreakPicker({
+  value,
+  onChange,
+  workStart,
+  workEnd,
+  breakType,
+  disabled,
+  id,
+  placeholder = "Pick break",
+  className,
+}: {
+  value: string; // "HH:mm"
+  onChange: (next: string) => void;
+  workStart: string; // "HH:mm"
+  workEnd: string; // "HH:mm", "00:00" treated as 24:00
+  breakType: BreakPickerType;
+  disabled?: boolean;
+  id?: string;
+  placeholder?: string;
+  className?: string;
+}) {
+  const breakDuration = breakStepMinutes(breakType);
+  const ws = React.useMemo(() => {
+    const { h24, m } = parseHM(workStart);
+    return h24 * 60 + m;
+  }, [workStart]);
+  const we = React.useMemo(() => {
+    const { h24, m } = parseHM(workEnd);
+    const raw = h24 * 60 + m;
+    return raw === 0 ? 24 * 60 : raw;
+  }, [workEnd]);
+
+  const options = React.useMemo(() => {
+    const opts: { value: string; label: string }[] = [];
+    const maxStart = we - breakDuration;
+    if (maxStart < ws) return opts;
+    for (let t = ws; t <= maxStart; t += 30) {
+      const h24 = Math.floor(t / 60) % 24;
+      const mm = t % 60;
+      const { hour, period } = to12(h24);
+      opts.push({
+        value: `${pad(h24)}:${pad(mm)}`,
+        label: `${hour}:${pad(mm)} ${period}`,
+      });
+    }
+    return opts;
+  }, [ws, we, breakDuration]);
+
+  React.useEffect(() => {
+    if (options.length === 0) return;
+    if (options.some((o) => o.value === value)) return;
+    if (options[0].value !== value) onChange(options[0].value);
+  }, [options, value, onChange]);
+
+  const display = value ? formatTimeLabel(value) : null;
+
+  return (
+    <Popover>
+      <PopoverTrigger
+        render={
+          <Button
+            id={id}
+            type="button"
+            variant="outline"
+            disabled={disabled}
+            className={triggerClass(display, className)}
+          />
+        }
+      >
+        <ClockIcon className="size-4" />
+        {display ?? placeholder}
+      </PopoverTrigger>
+      <PopoverContent className="w-44" align="start">
+        <WheelPickerWrapper className="w-full rounded-none bg-transparent px-0 dark:bg-transparent">
+          <WheelPicker<string>
+            {...WHEEL_COMMON}
+            value={value}
+            onValueChange={onChange}
+            options={options}
           />
         </WheelPickerWrapper>
       </PopoverContent>

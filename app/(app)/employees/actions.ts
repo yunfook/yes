@@ -10,6 +10,7 @@ import {
   positions,
   departments,
   areaSetting,
+  payMultiplier,
   otherSalaryType,
 } from "@/db/schema";
 import { requireSession, assertCanAccessArea } from "@/lib/authz";
@@ -22,13 +23,15 @@ const SalarySchema = z
   .object({
     type: z.enum(["hour", "monthly", "other"]),
     hour: z.number().nonnegative().nullable(),
-    day: z.number().nonnegative().nullable(),
-    week: z.number().nonnegative().nullable(),
     month: z.number().nonnegative().nullable(),
     otherTypeId: z.number().int().positive().nullable(),
-    hasOvertime: z.boolean(),
-    hasRestday: z.boolean(),
-    hasHoliday: z.boolean(),
+    hasOvertime: z.boolean().nullable(),
+    hasRestday: z.boolean().nullable(),
+    hasHoliday: z.boolean().nullable(),
+    hasDouble: z.boolean().nullable(),
+    hasTriple: z.boolean().nullable(),
+    hoursPerDay: z.number().positive().nullable(),
+    daysPerMonth: z.number().positive().nullable(),
   })
   .nullable();
 
@@ -130,14 +133,16 @@ export type EmployeeRow = {
   sundayBreak: string | null;
   salaryType: "hour" | "monthly" | "other" | null;
   salaryHour: number | null;
-  salaryDay: number | null;
-  salaryWeek: number | null;
   salaryMonth: number | null;
   otherSalaryTypeId: number | null;
   otherSalaryTypeName: string | null;
   hasOvertime: boolean | null;
   hasRestday: boolean | null;
   hasHoliday: boolean | null;
+  hasDouble: boolean | null;
+  hasTriple: boolean | null;
+  hoursPerDay: number | null;
+  daysPerMonth: number | null;
 };
 
 export async function listEmployeesByArea(areaId: number): Promise<EmployeeRow[]> {
@@ -163,14 +168,16 @@ export async function listEmployeesByArea(areaId: number): Promise<EmployeeRow[]
       restday: employees.restday,
       salaryType: employees.salaryType,
       salaryHour: employees.salaryHour,
-      salaryDay: employees.salaryDay,
-      salaryWeek: employees.salaryWeek,
       salaryMonth: employees.salaryMonth,
       otherSalaryTypeId: employees.otherSalaryTypeId,
       otherSalaryTypeName: otherSalaryType.name,
       hasOvertime: employees.hasOvertime,
       hasRestday: employees.hasRestday,
       hasHoliday: employees.hasHoliday,
+      hasDouble: employees.hasDouble,
+      hasTriple: employees.hasTriple,
+      hoursPerDay: employees.hoursPerDay,
+      daysPerMonth: employees.daysPerMonth,
     })
     .from(employees)
     .leftJoin(positions, eq(positions.id, employees.positionId))
@@ -261,12 +268,14 @@ export async function createEmployee(
   const session = await requireSession();
   await assertCanAccessArea(session, areaId);
   const data = Schema.parse(input);
-  if (data.positionId !== null) {
-    await assertPositionInArea(data.positionId, areaId);
-  }
-  if (data.departmentId !== null) {
-    await assertDepartmentInArea(data.departmentId, areaId);
-  }
+  await Promise.all([
+    data.positionId !== null
+      ? assertPositionInArea(data.positionId, areaId)
+      : Promise.resolve(),
+    data.departmentId !== null
+      ? assertDepartmentInArea(data.departmentId, areaId)
+      : Promise.resolve(),
+  ]);
 
   const [duplicate] = await db
     .select({ id: employees.id })
@@ -300,13 +309,15 @@ export async function createEmployee(
     ...scheduleColumns(data.schedule),
     salaryType: data.salary?.type ?? null,
     salaryHour: data.salary?.hour ?? null,
-    salaryDay: data.salary?.day ?? null,
-    salaryWeek: data.salary?.week ?? null,
     salaryMonth: data.salary?.month ?? null,
     otherSalaryTypeId: data.salary?.otherTypeId ?? null,
     hasOvertime: data.salary?.hasOvertime ?? null,
     hasRestday: data.salary?.hasRestday ?? null,
     hasHoliday: data.salary?.hasHoliday ?? null,
+    hasDouble: data.salary?.hasDouble ?? null,
+    hasTriple: data.salary?.hasTriple ?? null,
+    hoursPerDay: data.salary?.hoursPerDay ?? null,
+    daysPerMonth: data.salary?.daysPerMonth ?? null,
   });
   revalidatePath("/employees");
   revalidatePath("/dashboard");
@@ -320,12 +331,14 @@ export async function updateEmployee(
   const session = await requireSession();
   await assertCanAccessArea(session, areaId);
   const data = Schema.parse(input);
-  if (data.positionId !== null) {
-    await assertPositionInArea(data.positionId, areaId);
-  }
-  if (data.departmentId !== null) {
-    await assertDepartmentInArea(data.departmentId, areaId);
-  }
+  await Promise.all([
+    data.positionId !== null
+      ? assertPositionInArea(data.positionId, areaId)
+      : Promise.resolve(),
+    data.departmentId !== null
+      ? assertDepartmentInArea(data.departmentId, areaId)
+      : Promise.resolve(),
+  ]);
 
   const [existing] = await db
     .select({ areaId: employees.areaId })
@@ -371,13 +384,15 @@ export async function updateEmployee(
       ...scheduleColumns(data.schedule),
       salaryType: data.salary?.type ?? null,
       salaryHour: data.salary?.hour ?? null,
-      salaryDay: data.salary?.day ?? null,
-      salaryWeek: data.salary?.week ?? null,
       salaryMonth: data.salary?.month ?? null,
       otherSalaryTypeId: data.salary?.otherTypeId ?? null,
       hasOvertime: data.salary?.hasOvertime ?? null,
       hasRestday: data.salary?.hasRestday ?? null,
       hasHoliday: data.salary?.hasHoliday ?? null,
+      hasDouble: data.salary?.hasDouble ?? null,
+      hasTriple: data.salary?.hasTriple ?? null,
+      hoursPerDay: data.salary?.hoursPerDay ?? null,
+      daysPerMonth: data.salary?.daysPerMonth ?? null,
     })
     .where(eq(employees.id, id));
   revalidatePath("/employees");
@@ -413,6 +428,11 @@ export type ScheduleDefaults = {
 
 export type AreaSettingDefaults = {
   rates: {
+    hasOt: boolean;
+    hasRd: boolean;
+    hasPh: boolean;
+    hasDbl: boolean;
+    hasTpl: boolean;
     otRate: number;
     rdRate: number;
     phRate: number;
@@ -427,27 +447,43 @@ export async function getAreaSettingDefaults(
 ): Promise<AreaSettingDefaults> {
   const [row] = await db
     .select({
-      otRate: areaSetting.otRate,
-      rdRate: areaSetting.rdRate,
-      phRate: areaSetting.phRate,
+      hasOt: payMultiplier.hasOt,
+      hasRd: payMultiplier.hasRd,
+      hasPh: payMultiplier.hasPh,
+      hasDbl: payMultiplier.hasDbl,
+      hasTpl: payMultiplier.hasTpl,
+      otRate: payMultiplier.otRate,
+      rdRate: payMultiplier.rdRate,
+      phRate: payMultiplier.phRate,
       hoursPerWeek: areaSetting.hoursPerWeek,
       daysPerMonth: areaSetting.daysPerMonth,
       workStart: areaSetting.workStart,
       workEnd: areaSetting.workEnd,
     })
     .from(areaSetting)
+    .leftJoin(payMultiplier, eq(payMultiplier.areaId, areaSetting.areaId))
     .where(eq(areaSetting.areaId, areaId))
     .limit(1);
   return {
     rates: row
       ? {
-          otRate: row.otRate,
-          rdRate: row.rdRate,
-          phRate: row.phRate,
+          hasOt: row.hasOt ?? true,
+          hasRd: row.hasRd ?? true,
+          hasPh: row.hasPh ?? true,
+          hasDbl: row.hasDbl ?? false,
+          hasTpl: row.hasTpl ?? false,
+          otRate: row.otRate ?? 1.5,
+          rdRate: row.rdRate ?? 2,
+          phRate: row.phRate ?? 3,
           hoursPerWeek: row.hoursPerWeek,
           daysPerMonth: row.daysPerMonth,
         }
       : {
+          hasOt: true,
+          hasRd: true,
+          hasPh: true,
+          hasDbl: false,
+          hasTpl: false,
           otRate: 1.5,
           rdRate: 2,
           phRate: 3,

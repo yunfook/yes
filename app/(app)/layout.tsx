@@ -7,6 +7,7 @@ import { Separator } from "@/components/ui/separator";
 import { AppSidebar } from "@/components/sidebar/app-sidebar";
 import { QueryProvider } from "@/components/query-provider";
 import { Toaster } from "@/components/ui/sonner";
+import { FloatingChat } from "@/components/floating-chat";
 import { requireSession, getAccessibleAreas } from "@/lib/authz";
 
 export default async function AppLayout({
@@ -40,6 +41,7 @@ export default async function AppLayout({
           <main className="flex flex-1 flex-col gap-4 p-4">{children}</main>
         </SidebarInset>
         <Toaster />
+        {session.isAdmin && <FloatingChat />}
       </SidebarProvider>
     </QueryProvider>
   );

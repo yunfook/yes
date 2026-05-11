@@ -19,6 +19,11 @@ import {
   otherSalaryType,
   payMultiplier,
 } from "@/db/schema";
+import {
+  multiplierFor,
+  eligibilityFlag,
+  type ExtraPayType,
+} from "@/lib/payroll-calc";
 
 const DAY_KEYS = [
   "monday",
@@ -62,6 +67,7 @@ export const COLUMN_KEYS = [
   "annualLeave",
   "sickLeave",
   "schedule",
+  "extraPay",
 ] as const;
 
 export type ColumnKey = (typeof COLUMN_KEYS)[number];
@@ -98,6 +104,7 @@ const COLUMN_HEADERS: Record<ColumnKey, string> = {
   annualLeave: "Annual Leave",
   sickLeave: "Sick Leave",
   schedule: "Weekly Schedule",
+  extraPay: "Pay",
 };
 
 function styleHeader(row: ExcelJS.Row) {
@@ -141,6 +148,14 @@ export type CustomExportFilters = {
   departmentName?: string | null;
   nameSearch?: string | null;
   restday?: RestdayFilter | null;
+};
+
+export type IneligibleHandling = "skip" | "zero" | "compute-anyway";
+
+export type ExtraPaySpec = {
+  hours: number;
+  type: ExtraPayType;
+  ineligibleHandling?: IneligibleHandling | null;
 };
 
 type EmployeeRow = Awaited<ReturnType<typeof fetchEmployees>>[number];
@@ -276,6 +291,7 @@ function cellValue(
   key: ColumnKey,
   r: EmployeeRow,
   multByArea: Map<number, typeof payMultiplier.$inferSelect>,
+  extraPay: ExtraPaySpec | undefined,
 ): string | number | null {
   const mult = r.areaId ? multByArea.get(r.areaId) : undefined;
   switch (key) {
@@ -345,23 +361,50 @@ function cellValue(
       return r.totalSickLeave ?? "";
     case "schedule":
       return formatSchedule(r);
+    case "extraPay": {
+      if (!extraPay) return "";
+      if (r.salaryHour == null) return "";
+      const eligible = eligibilityFlag(extraPay.type, r);
+      if (!eligible && extraPay.ineligibleHandling === "zero") return 0;
+      const { rate } = multiplierFor(extraPay.type, mult ?? null);
+      const pay = r.salaryHour * extraPay.hours * rate;
+      return Number(pay.toFixed(2));
+    }
   }
 }
+
+export type WorkbookResult =
+  | { kind: "workbook"; buffer: Buffer; rowCount: number; skippedCount: number }
+  | {
+      kind: "needs-eligibility-clarification";
+      label: string;
+      ineligibleNames: string[];
+      ineligibleCount: number;
+      eligibleCount: number;
+    };
 
 export async function buildCustomEmployeesWorkbook(opts: {
   areaIds: number[];
   filters: CustomExportFilters;
   columns: ColumnKey[];
   sheetTitle?: string;
-}) {
+  extraPay?: ExtraPaySpec;
+}): Promise<WorkbookResult> {
+  if (opts.columns.includes("extraPay") && !opts.extraPay) {
+    throw new Error(
+      "extraPay column requested but no extraPay spec provided.",
+    );
+  }
+
   const rows = await fetchEmployees({
     areaIds: opts.areaIds,
     filters: opts.filters,
   });
 
-  const needsMultiplier = opts.columns.some(
-    (c) => c === "otRate" || c === "rdRate" || c === "phRate",
-  );
+  const needsMultiplier =
+    opts.columns.some(
+      (c) => c === "otRate" || c === "rdRate" || c === "phRate",
+    ) || opts.columns.includes("extraPay");
   let multByArea = new Map<number, typeof payMultiplier.$inferSelect>();
   if (needsMultiplier && opts.areaIds.length > 0) {
     const ms = await db
@@ -369,6 +412,28 @@ export async function buildCustomEmployeesWorkbook(opts: {
       .from(payMultiplier)
       .where(inArray(payMultiplier.areaId, opts.areaIds));
     multByArea = new Map(ms.map((m) => [m.areaId, m]));
+  }
+
+  let exportRows = rows;
+  let skippedCount = 0;
+  if (opts.extraPay && opts.columns.includes("extraPay")) {
+    const ineligible = rows.filter(
+      (r) => !eligibilityFlag(opts.extraPay!.type, r),
+    );
+    if (ineligible.length > 0 && !opts.extraPay.ineligibleHandling) {
+      const { label } = multiplierFor(opts.extraPay.type, null);
+      return {
+        kind: "needs-eligibility-clarification",
+        label,
+        ineligibleNames: ineligible.map((r) => r.name),
+        ineligibleCount: ineligible.length,
+        eligibleCount: rows.length - ineligible.length,
+      };
+    }
+    if (opts.extraPay.ineligibleHandling === "skip") {
+      exportRows = rows.filter((r) => eligibilityFlag(opts.extraPay!.type, r));
+      skippedCount = rows.length - exportRows.length;
+    }
   }
 
   const wb = new ExcelJS.Workbook();
@@ -382,10 +447,10 @@ export async function buildCustomEmployeesWorkbook(opts: {
   }));
   styleHeader(ws.getRow(1));
 
-  for (const r of rows) {
+  for (const r of exportRows) {
     const rowData: Record<string, string | number | null> = {};
     for (const key of opts.columns) {
-      rowData[key] = cellValue(key, r, multByArea);
+      rowData[key] = cellValue(key, r, multByArea, opts.extraPay);
     }
     const added = ws.addRow(rowData);
     if (opts.columns.includes("schedule")) {
@@ -397,8 +462,10 @@ export async function buildCustomEmployeesWorkbook(opts: {
   autoSize(ws);
 
   return {
+    kind: "workbook",
     buffer: Buffer.from(await wb.xlsx.writeBuffer()),
-    rowCount: rows.length,
+    rowCount: exportRows.length,
+    skippedCount,
   };
 }
 

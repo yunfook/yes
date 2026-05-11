@@ -14,10 +14,10 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 type ExportToolOutput = {
-  downloadUrl?: string;
+  data?: string;
+  contentType?: string;
   filename?: string;
   rowCount?: number;
-  expiresInSeconds?: number;
   salaryType?: string;
   areaName?: string;
   error?: string;
@@ -321,27 +321,44 @@ function ToolPart({ part }: { part: ToolPartLike }) {
     if (out?.error) {
       return <div className="text-xs text-red-600">{out.error}</div>;
     }
-    if (!out?.downloadUrl) return null;
+    if (!out?.data || !out.filename) return null;
     return (
       <div className="space-y-1">
         <div className="text-xs opacity-80">
           {label} · {out.rowCount ?? 0} rows
         </div>
-        <a
-          href={out.downloadUrl}
-          download={out.filename}
+        <button
+          type="button"
+          onClick={() => triggerDownload(out)}
           className="bg-background text-foreground hover:bg-accent inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-xs font-medium"
         >
           <DownloadIcon className="size-3" />
-          {out.filename ?? "Download"}
-        </a>
-        <div className="text-[10px] opacity-60">
-          Link expires in {Math.round((out.expiresInSeconds ?? 600) / 60)} min
-        </div>
+          {out.filename}
+        </button>
       </div>
     );
   }
   return null;
+}
+
+function triggerDownload(out: ExportToolOutput) {
+  if (!out.data || !out.filename) return;
+  const binary = atob(out.data);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  const blob = new Blob([bytes], {
+    type:
+      out.contentType ??
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = out.filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 0);
 }
 
 function labelForTool(type: string) {

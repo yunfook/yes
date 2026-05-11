@@ -15,7 +15,6 @@ import {
   COLUMN_KEYS,
   type ColumnKey,
 } from "@/lib/excel-exports";
-import { putDownload } from "@/lib/download-tokens";
 import { listEmployeesForChat } from "@/lib/chat-queries";
 import {
   calculateExtraPayForChat,
@@ -32,6 +31,28 @@ const SalaryTypeEnum = z
   );
 
 const ColumnEnum = z.enum(COLUMN_KEYS);
+
+const ExtraPayTypeEnum = z.enum([
+  "overtime",
+  "ot",
+  "restday",
+  "rd",
+  "od",
+  "offday",
+  "off-day",
+  "off_day",
+  "holiday",
+  "ph",
+  "publicholiday",
+  "public-holiday",
+  "public_holiday",
+  "double",
+  "2x",
+  "triple",
+  "3x",
+]);
+
+const IneligibleHandlingEnum = z.enum(["skip", "zero", "compute-anyway"]);
 
 const RestdayEnum = z
   .enum([
@@ -105,9 +126,6 @@ export async function POST(req: Request) {
 
   const { positions: scopePositions, departments: scopeDepartments } =
     await listScopeMetadata(scopedAreaIds);
-
-  const origin = new URL(req.url).origin;
-  const userId = session.userId;
 
   const lookupEmployees = tool({
     description:
@@ -285,7 +303,7 @@ export async function POST(req: Request) {
 
   const exportEmployees = tool({
     description: [
-      "Export filtered employee data to an Excel (.xlsx) file. Returns a download URL.",
+      "Export filtered employee data to an Excel (.xlsx) file. The file is streamed back to the user's browser for direct download.",
       "Use this whenever the user asks to download/export/get a file/spreadsheet/Excel of employees.",
       "You choose:",
       "- filters: which employees to include (by salary type, position, department, name search)",
@@ -325,7 +343,7 @@ export async function POST(req: Request) {
         .min(1)
         .default(DEFAULT_COLUMNS)
         .describe(
-          "Excel columns in order. Pick what the user asked for. 'dailyPay' is auto-computed (hourly: salaryHour×hoursPerDay; monthly: salaryMonth÷daysPerMonth). 'estimatedMonthly' normalises hourly to monthly. 'schedule' is a multi-line cell with all 7 days.",
+          "Excel columns in order. Pick what the user asked for. 'dailyPay' is auto-computed (hourly: salaryHour×hoursPerDay; monthly: salaryMonth÷daysPerMonth). 'estimatedMonthly' normalises hourly to monthly. 'schedule' is a multi-line cell with all 7 days. 'extraPay' is the per-row computed pay = hourlyRate × extraPay.hours × multiplier(extraPay.type) — requires the extraPay input.",
         ),
       sheetTitle: z
         .string()
@@ -334,29 +352,92 @@ export async function POST(req: Request) {
         .describe(
           "Short title for the worksheet tab and filename (e.g. 'Boilermen', 'Hourly Staff'). Keep under 30 chars.",
         ),
+      extraPay: z
+        .object({
+          hours: z
+            .number()
+            .positive()
+            .describe("Hours worked at this multiplier rate."),
+          type: ExtraPayTypeEnum.describe(
+            "Pay type: overtime/ot=1.5x, restday/rd/od/offday=2x, holiday/ph=3x, double/2x, triple/3x.",
+          ),
+          ineligibleHandling: IneligibleHandlingEnum.nullable()
+            .default(null)
+            .describe(
+              "What to do for employees not flagged eligible (hasOvertime/hasRestday/...): skip=exclude, zero=show with pay 0, compute-anyway=include and compute. Leave null to let the tool ask the user.",
+            ),
+        })
+        .nullable()
+        .default(null)
+        .describe(
+          "Set this when the user wants a computed pay column based on hours × multiplier (e.g. 'export office staff with OT pay for 5 hours'). Include 'extraPay' in columns to display the result.",
+        ),
     }),
     execute: async (input) => {
-      const { buffer, rowCount } = await buildCustomEmployeesWorkbook({
+      const extraPay = input.extraPay
+        ? {
+            hours: input.extraPay.hours,
+            type: normalizeExtraPayType(input.extraPay.type),
+            ineligibleHandling: input.extraPay.ineligibleHandling,
+          }
+        : undefined;
+      const result = await buildCustomEmployeesWorkbook({
         areaIds: scopedAreaIds,
         filters: input.filters,
         columns: input.columns,
         sheetTitle: input.sheetTitle ?? undefined,
+        extraPay,
       });
+      if (result.kind === "needs-eligibility-clarification") {
+        return {
+          needsClarification: true as const,
+          clarificationReason: "ineligible-employees" as const,
+          label: result.label,
+          ineligibleCount: result.ineligibleCount,
+          ineligibleNames: result.ineligibleNames,
+          eligibleCount: result.eligibleCount,
+        };
+      }
       const stamp = new Date().toISOString().slice(0, 10);
       const scope = currentArea ? sanitize(currentArea.name) : "all-areas";
       const base = input.sheetTitle
         ? sanitize(input.sheetTitle)
         : "employees";
       const filename = `${base}-${scope}-${stamp}.xlsx`;
-      const token = putDownload({ buffer, filename, userId });
       return {
-        downloadUrl: `${origin}/api/download/${token}`,
+        data: result.buffer.toString("base64"),
+        contentType:
+          "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         filename,
-        rowCount,
-        expiresInSeconds: 600,
+        rowCount: result.rowCount,
+        skippedCount: result.skippedCount,
         scope: scopeLabel,
         appliedFilters: input.filters,
         columns: input.columns,
+      };
+    },
+    // Keep the workbook bytes out of the model's context — Gemini only needs
+    // a short confirmation (or the clarification details) to write its
+    // follow-up text.
+    toModelOutput: ({ output }) => {
+      if ("needsClarification" in output && output.needsClarification) {
+        return {
+          type: "text",
+          value: [
+            `Export paused — needs clarification.`,
+            `${output.ineligibleCount} employee(s) are NOT flagged eligible for ${output.label}: ${output.ineligibleNames.join(", ")}.`,
+            `${output.eligibleCount} are eligible.`,
+            `Ask the user: skip them, include with pay=0, or compute anyway? Then re-call exportEmployees with extraPay.ineligibleHandling set ("skip" | "zero" | "compute-anyway").`,
+          ].join(" "),
+        };
+      }
+      const skipped =
+        output.skippedCount && output.skippedCount > 0
+          ? ` (${output.skippedCount} ineligible employees skipped)`
+          : "";
+      return {
+        type: "text",
+        value: `Generated ${output.filename} with ${output.rowCount} rows${skipped}. The user can download it directly from the chat UI.`,
       };
     },
   });
@@ -418,6 +499,16 @@ export async function POST(req: Request) {
       `- If a position/department the user mentions doesn't appear in the lists above, tell them so before exporting an empty file.`,
       `- Always include "name" as the first column unless the user says otherwise.`,
       `- Set sheetTitle to a short descriptive name (e.g. "Boilermen").`,
+      ``,
+      `EXTRA-PAY EXPORTS (computed "amount to pay" column):`,
+      `When the user asks to export employees with a pay calculation for N hours at some rate (e.g. "office staff OT 5 hours on PH, export with amount to pay", "all hourly workers, restday 8 hours, export"):`,
+      `- Set extraPay = { hours, type } on the exportEmployees tool.`,
+      `- Include "extraPay" in the columns array. Suggested columns when the user asks for "name, hourrate, amount to pay": ["name", "salaryHour", "extraPay"].`,
+      `- Map natural language to type: OT/overtime → "overtime", restday/off day/OD → "restday", PH/public holiday → "holiday", 2x/double → "double", 3x/triple → "triple".`,
+      `- AMBIGUOUS MULTIPLIERS — if the user mentions more than one multiplier trigger in the same phrase (e.g. "OT on public holiday", "OT on restday", "OT on PH"), DO NOT guess. STOP and ask the user which rate to apply: "You said OT on a public holiday. Should I use the PH rate (3x) or the OT rate (1.5x)?" Wait for their reply, then call the tool with the chosen type. PH usually supersedes OT in real-world payroll, but always confirm.`,
+      `- ELIGIBILITY: leave extraPay.ineligibleHandling = null on the first call. If the tool returns { needsClarification: true, ineligibleNames }, list those employees to the user and ask: "These employees aren't flagged eligible for <label>: <names>. Should I (a) skip them, (b) show them with pay = 0, or (c) compute anyway?" Then re-call exportEmployees with extraPay.ineligibleHandling set to "skip" | "zero" | "compute-anyway".`,
+      `- Example resolved call for "office, OT 5 hours on PH, export name/hourrate/pay" (after the user picks PH 3x and "skip" for ineligible):`,
+      `    filters: { departmentName: "Office" }, columns: ["name", "salaryHour", "extraPay"], extraPay: { hours: 5, type: "holiday", ineligibleHandling: "skip" }, sheetTitle: "Office PH Pay"`,
       ``,
       `COMPARING PAY: hourly and monthly salaries aren't comparable as raw numbers. For "highest/lowest paid", use sortBy="estimatedMonthly".`,
       ``,

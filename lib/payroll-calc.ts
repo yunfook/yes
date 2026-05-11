@@ -353,7 +353,7 @@ async function loadMultiplier(areaId: number): Promise<Multipliers | null> {
   return rows[0] ?? null;
 }
 
-function multiplierFor(
+export function multiplierFor(
   type: ExtraPayType,
   mult: Multipliers | null,
 ): { rate: number; areaEnabled: boolean; label: string } {
@@ -391,7 +391,13 @@ function multiplierFor(
   }
 }
 
-function eligibilityFlag(type: ExtraPayType, emp: ExtraPayEmployee): boolean {
+export function eligibilityFlag(
+  type: ExtraPayType,
+  emp: Pick<
+    ExtraPayEmployee,
+    "hasOvertime" | "hasRestday" | "hasHoliday" | "hasDouble" | "hasTriple"
+  >,
+): boolean {
   switch (type) {
     case "overtime":
       return emp.hasOvertime === true;

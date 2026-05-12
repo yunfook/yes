@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { notFound } from "next/navigation";
 import { and, eq, isNull, sql } from "drizzle-orm";
 import { BriefcaseIcon, Building2Icon, UsersIcon } from "lucide-react";
 import {
@@ -9,17 +10,12 @@ import {
 } from "@/components/ui/card";
 import { db } from "@/db";
 import {
-  areas as areasTable,
   departments,
   employees,
   positions,
   otherSalaryType,
 } from "@/db/schema";
-import {
-  assertCanAccessArea,
-  getAccessibleAreas,
-  requireSession,
-} from "@/lib/authz";
+import { getAccessibleAreas, requireSession } from "@/lib/authz";
 import {
   DashboardCharts,
   type ChartDatum,
@@ -98,32 +94,33 @@ export default async function DashboardPage({
 }: {
   searchParams: Promise<{ area?: string }>;
 }) {
-  const session = await requireSession();
-  const { area } = await searchParams;
+  const [session, { area }] = await Promise.all([
+    requireSession(),
+    searchParams,
+  ]);
   const accessible = await getAccessibleAreas(session);
-  const currentAreaId = area ? Number(area) : (accessible[0]?.id ?? null);
+  const requestedId = area ? Number(area) : null;
+  const currentArea =
+    (requestedId !== null
+      ? accessible.find((a) => a.id === requestedId)
+      : accessible[0]) ?? null;
 
-  if (!currentAreaId) {
-    return (
-      <div className="text-sm text-muted-foreground">
-        No areas accessible. Ask an admin to assign you to an area.
-      </div>
-    );
+  if (!currentArea) {
+    if (accessible.length === 0) {
+      return (
+        <div className="text-sm text-muted-foreground">
+          No areas accessible. Ask an admin to assign you to an area.
+        </div>
+      );
+    }
+    notFound();
   }
-  await assertCanAccessArea(session, currentAreaId);
-
-  const areaRow = await db
-    .select({ name: areasTable.name })
-    .from(areasTable)
-    .where(and(eq(areasTable.id, currentAreaId), isNull(areasTable.deletedAt)))
-    .limit(1)
-    .then((r) => r[0] ?? null);
 
   return (
     <div className="flex flex-col gap-6">
       <div>
         <h1 className="text-2xl font-semibold text-foreground">
-          Dashboard - {areaRow?.name ?? "—"}
+          Dashboard - {currentArea.name}
         </h1>
         <p className="text-sm text-muted-foreground">
           Live snapshot of the selected area.
@@ -131,11 +128,11 @@ export default async function DashboardPage({
       </div>
 
       <Suspense fallback={<StatsSkeleton />}>
-        <Stats areaId={currentAreaId} />
+        <Stats areaId={currentArea.id} />
       </Suspense>
 
       <Suspense fallback={<ChartsSkeleton />}>
-        <Charts areaId={currentAreaId} />
+        <Charts areaId={currentArea.id} />
       </Suspense>
     </div>
   );
@@ -170,26 +167,66 @@ async function Stats({ areaId }: { areaId: number }) {
 }
 
 async function Charts({ areaId }: { areaId: number }) {
-  const [empRows, deptTotal, posTotal] = await Promise.all([
+  const where = and(eq(employees.areaId, areaId), isNull(employees.deletedAt));
+
+  const [
+    genderRows,
+    nationalityRows,
+    positionRows,
+    departmentRows,
+    salaryRows,
+    restdayRow,
+    deptTotal,
+    posTotal,
+  ] = await Promise.all([
+    db
+      .select({ key: employees.gender, c: sql<number>`count(*)::int` })
+      .from(employees)
+      .where(where)
+      .groupBy(employees.gender),
+    db
+      .select({ key: employees.nationality, c: sql<number>`count(*)::int` })
+      .from(employees)
+      .where(where)
+      .groupBy(employees.nationality),
+    db
+      .select({ name: positions.name, c: sql<number>`count(*)::int` })
+      .from(employees)
+      .innerJoin(positions, eq(positions.id, employees.positionId))
+      .where(where)
+      .groupBy(positions.name),
+    db
+      .select({ name: departments.name, c: sql<number>`count(*)::int` })
+      .from(employees)
+      .innerJoin(departments, eq(departments.id, employees.departmentId))
+      .where(where)
+      .groupBy(departments.name),
     db
       .select({
-        gender: employees.gender,
-        nationality: employees.nationality,
-        positionName: positions.name,
-        departmentName: departments.name,
-        salaryTypeLabel: sql<
-          string | null
-        >`CASE WHEN ${employees.salaryType} = 'other' THEN ${otherSalaryType.name} ELSE ${employees.salaryType} END`,
-        restday: employees.restday,
+        key: sql<string | null>`CASE WHEN ${employees.salaryType} = 'other' THEN ${otherSalaryType.name} ELSE ${employees.salaryType} END`,
+        c: sql<number>`count(*)::int`,
       })
       .from(employees)
-      .leftJoin(positions, eq(positions.id, employees.positionId))
-      .leftJoin(departments, eq(departments.id, employees.departmentId))
       .leftJoin(
         otherSalaryType,
         eq(otherSalaryType.id, employees.otherSalaryTypeId),
       )
-      .where(and(eq(employees.areaId, areaId), isNull(employees.deletedAt))),
+      .where(where)
+      .groupBy(sql`1`),
+    db
+      .select({
+        mon_rest: sql<number>`count(*) FILTER (WHERE 'monday' = ANY(${employees.restday}) AND NOT ('none' = ANY(${employees.restday})))::int`,
+        tue_rest: sql<number>`count(*) FILTER (WHERE 'tuesday' = ANY(${employees.restday}) AND NOT ('none' = ANY(${employees.restday})))::int`,
+        wed_rest: sql<number>`count(*) FILTER (WHERE 'wednesday' = ANY(${employees.restday}) AND NOT ('none' = ANY(${employees.restday})))::int`,
+        thu_rest: sql<number>`count(*) FILTER (WHERE 'thursday' = ANY(${employees.restday}) AND NOT ('none' = ANY(${employees.restday})))::int`,
+        fri_rest: sql<number>`count(*) FILTER (WHERE 'friday' = ANY(${employees.restday}) AND NOT ('none' = ANY(${employees.restday})))::int`,
+        sat_rest: sql<number>`count(*) FILTER (WHERE 'saturday' = ANY(${employees.restday}) AND NOT ('none' = ANY(${employees.restday})))::int`,
+        sun_rest: sql<number>`count(*) FILTER (WHERE 'sunday' = ANY(${employees.restday}) AND NOT ('none' = ANY(${employees.restday})))::int`,
+        scheduled: sql<number>`count(*) FILTER (WHERE ${employees.restday} IS NOT NULL)::int`,
+      })
+      .from(employees)
+      .where(where)
+      .then((r) => r[0]),
     db
       .select({ c: sql<number>`count(*)::int` })
       .from(departments)
@@ -204,65 +241,42 @@ async function Charts({ areaId }: { areaId: number }) {
       .then((r) => r[0]?.c ?? 0),
   ]);
 
-  const gender: Record<string, number> = { Male: 0, Female: 0, "Not set": 0 };
-  const nationality: Record<string, number> = {
-    Local: 0,
-    International: 0,
-    "Not set": 0,
-  };
-  const positionMap: Record<string, number> = {};
-  const departmentMap: Record<string, number> = {};
-  const salaryType: Record<string, number> = {
-    hour: 0,
-    monthly: 0,
-    "Not set": 0,
-  };
-  for (const e of empRows) {
-    gender[e.gender ?? "Not set"]++;
-    nationality[e.nationality ?? "Not set"]++;
-    const p = e.positionName ?? "Unassigned";
-    positionMap[p] = (positionMap[p] ?? 0) + 1;
-    const d = e.departmentName ?? "Unassigned";
-    departmentMap[d] = (departmentMap[d] ?? 0) + 1;
-    const key = e.salaryTypeLabel ?? "Not set";
-    salaryType[key] = (salaryType[key] ?? 0) + 1;
-  }
+  const toData = <T extends { c: number }>(
+    rows: T[],
+    getLabel: (row: T) => string | null | undefined,
+  ): ChartDatum[] =>
+    rows
+      .filter((r) => {
+        const label = getLabel(r);
+        return r.c > 0 && label != null && label !== "";
+      })
+      .map((r) => ({ label: getLabel(r) as string, count: r.c }));
 
+  const scheduled = restdayRow?.scheduled ?? 0;
+  const restdayPerDay: Record<string, number> = {
+    monday: restdayRow?.mon_rest ?? 0,
+    tuesday: restdayRow?.tue_rest ?? 0,
+    wednesday: restdayRow?.wed_rest ?? 0,
+    thursday: restdayRow?.thu_rest ?? 0,
+    friday: restdayRow?.fri_rest ?? 0,
+    saturday: restdayRow?.sat_rest ?? 0,
+    sunday: restdayRow?.sun_rest ?? 0,
+  };
   const restdayData = WEEKDAYS.map((day) => {
-    let working = 0;
-    let resting = 0;
-    for (const e of empRows) {
-      if (!e.restday) continue;
-      if (e.restday.includes("none")) {
-        working++;
-      } else if (e.restday.includes(day)) {
-        resting++;
-      } else {
-        working++;
-      }
-    }
-    return { day, working, resting };
+    const resting = restdayPerDay[day];
+    return { day, working: scheduled - resting, resting };
   });
 
-  const toData = (m: Record<string, number>): ChartDatum[] =>
-    Object.entries(m)
-      .filter(([k, v]) => v > 0 && k !== "Not set" && k !== "Unassigned")
-      .map(([label, count]) => ({ label, count }));
-
   const data: DashboardData = {
-    gender: toData(gender),
-    nationality: toData(nationality),
-    positions: toData(positionMap),
-    departments: toData(departmentMap),
-    salaryType: toData(salaryType),
+    gender: toData(genderRows, (r) => r.key),
+    nationality: toData(nationalityRows, (r) => r.key),
+    positions: toData(positionRows, (r) => r.name),
+    departments: toData(departmentRows, (r) => r.name),
+    salaryType: toData(salaryRows, (r) => r.key),
     restday: restdayData,
   };
 
   return (
-    <DashboardCharts
-      data={data}
-      deptTotal={deptTotal}
-      posTotal={posTotal}
-    />
+    <DashboardCharts data={data} deptTotal={deptTotal} posTotal={posTotal} />
   );
 }

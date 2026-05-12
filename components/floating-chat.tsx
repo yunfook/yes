@@ -58,11 +58,17 @@ export function FloatingChat() {
 
   const { messages, sendMessage, status, error, stop } = useChat({
     transport,
+    experimental_throttle: 50,
   });
 
   React.useEffect(() => {
-    if (!scrollerRef.current) return;
-    scrollerRef.current.scrollTop = scrollerRef.current.scrollHeight;
+    const el = scrollerRef.current;
+    if (!el) return;
+    const distanceFromBottom =
+      el.scrollHeight - el.scrollTop - el.clientHeight;
+    if (distanceFromBottom < 120) {
+      el.scrollTop = el.scrollHeight;
+    }
   }, [messages, open]);
 
   const busy = status === "submitted" || status === "streaming";
@@ -194,7 +200,7 @@ export function FloatingChat() {
   );
 }
 
-function MessageBubble({
+const MessageBubble = React.memo(function MessageBubble({
   message,
 }: {
   message: ReturnType<typeof useChat>["messages"][number];
@@ -230,7 +236,7 @@ function MessageBubble({
       </div>
     </div>
   );
-}
+});
 
 type Block =
   | { kind: "para"; text: string }

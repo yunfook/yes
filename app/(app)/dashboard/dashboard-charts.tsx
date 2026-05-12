@@ -9,6 +9,7 @@ import {
   LabelList,
   Pie,
   PieChart,
+  Sector,
   XAxis,
   YAxis,
 } from "recharts";
@@ -24,6 +25,7 @@ import {
   ChartTooltipContent,
   type ChartConfig,
 } from "@/components/ui/chart";
+import { cn } from "@/lib/utils";
 
 export type ChartDatum = { label: string; count: number };
 export type RestdayDatum = { day: string; working: number; resting: number };
@@ -38,11 +40,26 @@ export type DashboardData = {
 };
 
 const PIE_COLORS = [
-  "var(--chart-1)",
-  "var(--chart-2)",
-  "var(--chart-3)",
-  "var(--chart-4)",
-  "var(--chart-5)",
+  "#3b82f6",
+  "#22c55e",
+  "#f97316",
+  "#a855f7",
+  "#ec4899",
+  "#eab308",
+  "#14b8a6",
+  "#ef4444",
+  "#6366f1",
+  "#06b6d4",
+  "#84cc16",
+  "#f43f5e",
+  "#8b5cf6",
+  "#10b981",
+  "#f59e0b",
+  "#0ea5e9",
+  "#d946ef",
+  "#65a30d",
+  "#dc2626",
+  "#0891b2",
 ];
 
 const RESTDAY_LABELS: Record<string, string> = {
@@ -140,6 +157,9 @@ function PieChartCard({
   count?: number;
 }) {
   const total = count ?? data.length;
+  const [activeIndex, setActiveIndex] = React.useState<number | undefined>(
+    undefined,
+  );
   const config: ChartConfig = {
     count: { label: "Employees" },
     ...Object.fromEntries(
@@ -149,6 +169,8 @@ function PieChartCard({
       ]),
     ),
   };
+  const sum = data.reduce((acc, d) => acc + d.count, 0);
+  const active = activeIndex !== undefined ? data[activeIndex] : undefined;
   return (
     <Card>
       <CardHeader>
@@ -163,30 +185,91 @@ function PieChartCard({
         {data.length === 0 ? (
           <EmptyState />
         ) : (
-          <ChartContainer
-            config={config}
-            className="h-[260px] w-full [&_.recharts-pie-label-line]:stroke-primary [&_.recharts-pie-label-text]:fill-primary"
-          >
-            <PieChart>
-              <ChartTooltip
-                cursor={false}
-                content={<ChartTooltipContent hideLabel className="text-primary" />}
-              />
-              <Pie
-                data={data}
-                dataKey="count"
-                nameKey="label"
-                outerRadius={90}
+          <div className="flex h-[260px] gap-3">
+            <ul
+              className="w-32 shrink-0 space-y-0.5 overflow-auto pr-1 text-xs"
+              onMouseLeave={() => setActiveIndex(undefined)}
+            >
+              {data.map((d, i) => {
+                const color = PIE_COLORS[i % PIE_COLORS.length];
+                return (
+                  <li
+                    key={d.label}
+                    onMouseEnter={() => setActiveIndex(i)}
+                    className={cn(
+                      "flex cursor-pointer items-center gap-1.5 rounded px-1.5 py-1 transition-colors",
+                      activeIndex === i ? "bg-muted" : "hover:bg-muted/50",
+                    )}
+                  >
+                    <span
+                      className="h-2.5 w-2.5 shrink-0 rounded-sm"
+                      style={{ backgroundColor: color }}
+                    />
+                    <span className="flex-1 truncate" title={d.label}>
+                      {d.label}
+                    </span>
+                    <span className="font-mono tabular-nums text-muted-foreground">
+                      {d.count}
+                    </span>
+                  </li>
+                );
+              })}
+            </ul>
+            <div className="relative flex-1">
+              <ChartContainer
+                config={config}
+                className="h-full w-full [&_.recharts-pie-label-line]:stroke-primary [&_.recharts-pie-label-text]:fill-primary"
               >
-                {data.map((_, i) => (
-                  <Cell
-                    key={`cell-${i}`}
-                    fill={PIE_COLORS[i % PIE_COLORS.length]}
+                <PieChart>
+                  <ChartTooltip
+                    cursor={false}
+                    content={
+                      <ChartTooltipContent hideLabel className="text-primary" />
+                    }
                   />
-                ))}
-              </Pie>
-            </PieChart>
-          </ChartContainer>
+                  <Pie
+                    data={data}
+                    dataKey="count"
+                    nameKey="label"
+                    outerRadius={90}
+                    activeShape={(props: React.ComponentProps<typeof Sector>) => (
+                      <Sector
+                        {...props}
+                        outerRadius={(props.outerRadius ?? 90) + 6}
+                      />
+                    )}
+                  >
+                    {data.map((_, i) => (
+                      <Cell
+                        key={`cell-${i}`}
+                        fill={PIE_COLORS[i % PIE_COLORS.length]}
+                        opacity={
+                          activeIndex === undefined || activeIndex === i
+                            ? 1
+                            : 0.35
+                        }
+                      />
+                    ))}
+                  </Pie>
+                </PieChart>
+              </ChartContainer>
+              {active && (
+                <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center text-center">
+                  <span className="max-w-[60%] truncate text-xs text-muted-foreground">
+                    {active.label}
+                  </span>
+                  <span className="text-lg font-semibold text-primary">
+                    {active.count}
+                  </span>
+                  {sum > 0 && (
+                    <span className="text-[10px] text-muted-foreground">
+                      {((active.count / sum) * 100).toFixed(1)}%
+                    </span>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
         )}
       </CardContent>
     </Card>

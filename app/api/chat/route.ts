@@ -124,8 +124,13 @@ export async function POST(req: Request) {
     ? `the "${currentArea.name}" area`
     : `all accessible areas (${accessibleAreas.map((a) => a.name).join(", ")})`;
 
-  const { positions: scopePositions, departments: scopeDepartments } =
-    await listScopeMetadata(scopedAreaIds);
+  const [
+    { positions: scopePositions, departments: scopeDepartments },
+    modelMessages,
+  ] = await Promise.all([
+    listScopeMetadata(scopedAreaIds),
+    convertToModelMessages(messages),
+  ]);
 
   const lookupEmployees = tool({
     description:
@@ -523,7 +528,7 @@ export async function POST(req: Request) {
       ``,
       `Be concise. After exportEmployees returns, confirm the file is ready with the row count and the applied filters. Don't restate the URL — the UI shows a Download button.`,
     ].join("\n"),
-    messages: await convertToModelMessages(messages),
+    messages: modelMessages,
     tools: {
       lookupEmployees,
       calculateMonthlyPay,

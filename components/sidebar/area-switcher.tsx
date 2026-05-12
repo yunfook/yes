@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { useRouter, usePathname, useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -20,16 +20,9 @@ import { ChevronsUpDownIcon, MapPinIcon } from "lucide-react";
 
 type Area = { id: number; name: string };
 
-export function AreaSwitcher({
-  areas,
-  isAdmin,
-}: {
-  areas: Area[];
-  isAdmin: boolean;
-}) {
+export function AreaSwitcher({ areas }: { areas: Area[] }) {
   const { isMobile } = useSidebar();
   const router = useRouter();
-  const pathname = usePathname();
   const searchParams = useSearchParams();
 
   const currentAreaParam = searchParams.get("area");
@@ -37,9 +30,7 @@ export function AreaSwitcher({
   const active = areas.find((a) => a.id === currentAreaId) ?? areas[0];
 
   const switchArea = (id: number) => {
-    const params = new URLSearchParams(searchParams);
-    params.set("area", String(id));
-    router.push(`${pathname}?${params.toString()}`);
+    router.push(`/dashboard?area=${id}`);
   };
 
   if (!active) {
@@ -57,7 +48,7 @@ export function AreaSwitcher({
     );
   }
 
-  if (!isAdmin) {
+  if (areas.length <= 1) {
     return (
       <SidebarMenu>
         <SidebarMenuItem>

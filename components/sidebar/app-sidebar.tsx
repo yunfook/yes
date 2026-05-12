@@ -51,7 +51,7 @@ export function AppSidebar({
   return (
     <Sidebar collapsible="offcanvas" {...props}>
       <SidebarHeader>
-        <AreaSwitcher areas={areas} isAdmin={user.isAdmin} />
+        <AreaSwitcher areas={areas} />
       </SidebarHeader>
       <SidebarContent>
         <NavMain label="Fast Link" items={fastLink} />

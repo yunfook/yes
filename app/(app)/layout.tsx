@@ -41,7 +41,9 @@ export default async function AppLayout({
           <main className="flex flex-1 flex-col gap-4 p-4">{children}</main>
         </SidebarInset>
         <Toaster />
-        {session.isAdmin && <FloatingChat />}
+        {session.isAdmin && (
+          <FloatingChat areas={areas.map((a) => ({ id: a.id, name: a.name }))} />
+        )}
       </SidebarProvider>
     </QueryProvider>
   );

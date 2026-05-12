@@ -112,25 +112,17 @@ export async function POST(req: Request) {
       : null;
 
   const currentArea =
-    (requestedAreaId !== null
+    requestedAreaId !== null
       ? accessibleAreas.find((a) => a.id === requestedAreaId)
-      : null) ?? null;
+      : accessibleAreas[0];
 
-  const scopedAreaIds = currentArea
-    ? [currentArea.id]
-    : accessibleAreas.map((a) => a.id);
+  if (!currentArea) {
+    return Response.json({ error: "Area not accessible" }, { status: 403 });
+  }
 
-  const scopeLabel = currentArea
-    ? `the "${currentArea.name}" area`
-    : `all accessible areas (${accessibleAreas.map((a) => a.name).join(", ")})`;
+  const scopedAreaIds = [currentArea.id];
 
-  const [
-    { positions: scopePositions, departments: scopeDepartments },
-    modelMessages,
-  ] = await Promise.all([
-    listScopeMetadata(scopedAreaIds),
-    convertToModelMessages(messages),
-  ]);
+  const scopeLabel = `the "${currentArea.name}" area`;
 
   const lookupEmployees = tool({
     description:
@@ -447,6 +439,21 @@ export async function POST(req: Request) {
     },
   });
 
+  const tools = {
+    lookupEmployees,
+    calculateMonthlyPay,
+    calculateExtraPay,
+    exportEmployees,
+  };
+
+  const [
+    { positions: scopePositions, departments: scopeDepartments },
+    modelMessages,
+  ] = await Promise.all([
+    listScopeMetadata(scopedAreaIds),
+    convertToModelMessages(messages, { tools }),
+  ]);
+
   const positionsHint =
     scopePositions.length > 0
       ? `Available positions in scope: ${scopePositions.join(", ")}.`
@@ -529,12 +536,7 @@ export async function POST(req: Request) {
       `Be concise. After exportEmployees returns, confirm the file is ready with the row count and the applied filters. Don't restate the URL — the UI shows a Download button.`,
     ].join("\n"),
     messages: modelMessages,
-    tools: {
-      lookupEmployees,
-      calculateMonthlyPay,
-      calculateExtraPay,
-      exportEmployees,
-    },
+    tools,
     stopWhen: stepCountIs(5),
   });
 

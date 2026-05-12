@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useChat } from "@ai-sdk/react";
-import { DefaultChatTransport } from "ai";
+import { DefaultChatTransport, type UIMessage } from "ai";
 import {
   DownloadIcon,
   Loader2Icon,
@@ -23,6 +23,8 @@ type ExportToolOutput = {
   error?: string;
 };
 
+type Area = { id: number; name: string };
+
 const EXPORT_TOOL_NAMES = new Set(["tool-exportEmployees"]);
 const LOOKUP_TOOL_NAMES = new Set([
   "tool-lookupEmployees",
@@ -36,7 +38,33 @@ const EXAMPLE_PROMPTS = [
   "Export Excel of boilermen with their restday and hourly pay",
 ];
 
-export function FloatingChat() {
+function trimChatHistoryForRequest(messages: UIMessage[]): UIMessage[] {
+  return messages.map((message) => ({
+    ...message,
+    parts: message.parts.map((part) => {
+      if (
+        part.type !== "tool-exportEmployees" ||
+        part.state !== "output-available"
+      ) {
+        return part;
+      }
+
+      const output = part.output as ExportToolOutput | undefined;
+      if (!output?.data) return part;
+
+      return {
+        ...part,
+        output: {
+          ...output,
+          data: undefined,
+          contentType: undefined,
+        },
+      };
+    }),
+  }));
+}
+
+export function FloatingChat({ areas }: { areas: Area[] }) {
   const [open, setOpen] = React.useState(false);
   const [input, setInput] = React.useState("");
   const scrollerRef = React.useRef<HTMLDivElement>(null);
@@ -47,19 +75,42 @@ export function FloatingChat() {
         body: () => {
           const params = new URLSearchParams(window.location.search);
           const raw = params.get("area");
-          const areaId = raw ? Number(raw) : null;
+          const requestedAreaId = raw ? Number(raw) : null;
+          const activeArea =
+            (requestedAreaId !== null
+              ? areas.find((area) => area.id === requestedAreaId)
+              : null) ?? areas[0];
           return {
-            areaId: Number.isFinite(areaId) ? areaId : null,
+            areaId: activeArea?.id ?? null,
           };
         },
+        prepareSendMessagesRequest: ({
+          id,
+          messages,
+          body,
+          trigger,
+          messageId,
+        }) => ({
+          body: {
+            ...body,
+            id,
+            messages: trimChatHistoryForRequest(messages),
+            trigger,
+            messageId,
+          },
+        }),
       }),
-    [],
+    [areas],
   );
 
   const { messages, sendMessage, status, error, stop } = useChat({
     transport,
     experimental_throttle: 50,
   });
+
+  const lastMessage = messages[messages.length - 1];
+  const waitingForAssistant =
+    status === "submitted" && lastMessage?.role === "user";
 
   React.useEffect(() => {
     const el = scrollerRef.current;
@@ -114,14 +165,24 @@ export function FloatingChat() {
             <div className="flex items-center gap-2">
               <SparklesIcon className="text-primary size-4" />
               <span className="text-sm font-medium">HR Assistant</span>
+              <span className="text-muted-foreground text-xs">
+                {status === "streaming"
+                  ? "thinking…"
+                  : status === "submitted"
+                    ? "sending…"
+                    : "ready"}
+              </span>
             </div>
-            <span className="text-muted-foreground text-xs">
-              {status === "streaming"
-                ? "thinking…"
-                : status === "submitted"
-                  ? "sending…"
-                  : "ready"}
-            </span>
+            <Button
+              type="button"
+              size="icon"
+              variant="ghost"
+              onClick={() => setOpen(false)}
+              className="size-7"
+              aria-label="Close chat"
+            >
+              <XIcon className="size-4" />
+            </Button>
           </div>
 
           <div
@@ -150,6 +211,15 @@ export function FloatingChat() {
             {messages.map((m) => (
               <MessageBubble key={m.id} message={m} />
             ))}
+
+            {waitingForAssistant && (
+              <div className="flex justify-start">
+                <div className="bg-muted text-muted-foreground flex items-center gap-2 rounded-lg px-3 py-2 text-xs">
+                  <Loader2Icon className="size-3 animate-spin" />
+                  Preparing response…
+                </div>
+              </div>
+            )}
 
             {error && (
               <div className="rounded-md border border-red-200 bg-red-50 px-2 py-1.5 text-xs text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-300">

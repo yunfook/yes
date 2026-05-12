@@ -402,4 +402,18 @@
   html {
     @apply font-sans;
   }
+  .legend-scroll {
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) transparent;
+  }
+  .legend-scroll::-webkit-scrollbar {
+    width: 6px;
+  }
+  .legend-scroll::-webkit-scrollbar-thumb {
+    background-color: var(--border);
+    border-radius: 3px;
+  }
+  .legend-scroll::-webkit-scrollbar-track {
+    background: transparent;
+  }
 }

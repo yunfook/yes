@@ -185,9 +185,9 @@ function PieChartCard({
         {data.length === 0 ? (
           <EmptyState />
         ) : (
-          <div className="flex h-[260px] gap-3">
+          <div className="-ml-2 flex h-[340px] min-w-0 gap-2">
             <ul
-              className="w-32 shrink-0 space-y-0.5 overflow-auto pr-1 text-xs"
+              className="legend-scroll w-44 shrink-0 space-y-0.5 overflow-y-scroll pr-1 text-xs"
               onMouseLeave={() => setActiveIndex(undefined)}
             >
               {data.map((d, i) => {
@@ -197,7 +197,7 @@ function PieChartCard({
                     key={d.label}
                     onMouseEnter={() => setActiveIndex(i)}
                     className={cn(
-                      "flex cursor-pointer items-center gap-1.5 rounded px-1.5 py-1 transition-colors",
+                      "flex cursor-pointer items-center gap-1.5 rounded px-1 py-1 transition-colors",
                       activeIndex === i ? "bg-muted" : "hover:bg-muted/50",
                     )}
                   >
@@ -215,10 +215,29 @@ function PieChartCard({
                 );
               })}
             </ul>
-            <div className="relative flex-1">
+            <div className="flex min-w-0 flex-1 flex-col items-center">
+              <div className="pointer-events-none flex h-12 w-full max-w-[340px] flex-col items-center justify-center text-center">
+                {active && (
+                  <>
+                    <span className="max-w-full truncate text-xs text-muted-foreground">
+                      {active.label}
+                    </span>
+                    <div className="flex items-baseline gap-2">
+                      <span className="text-lg font-semibold text-primary">
+                        {active.count}
+                      </span>
+                      {sum > 0 && (
+                        <span className="text-[10px] text-muted-foreground">
+                          {((active.count / sum) * 100).toFixed(1)}%
+                        </span>
+                      )}
+                    </div>
+                  </>
+                )}
+              </div>
               <ChartContainer
                 config={config}
-                className="h-full w-full [&_.recharts-pie-label-line]:stroke-primary [&_.recharts-pie-label-text]:fill-primary"
+                className="aspect-square h-[calc(100%-3rem)] w-full max-w-[292px] [&_.recharts-pie-label-line]:stroke-primary [&_.recharts-pie-label-text]:fill-primary"
               >
                 <PieChart>
                   <ChartTooltip
@@ -231,13 +250,19 @@ function PieChartCard({
                     data={data}
                     dataKey="count"
                     nameKey="label"
-                    outerRadius={90}
-                    activeShape={(props: React.ComponentProps<typeof Sector>) => (
-                      <Sector
-                        {...props}
-                        outerRadius={(props.outerRadius ?? 90) + 6}
-                      />
-                    )}
+                    outerRadius="95%"
+                    activeShape={(props: React.ComponentProps<typeof Sector>) => {
+                      const base =
+                        typeof props.outerRadius === "number"
+                          ? props.outerRadius
+                          : 0;
+                      return (
+                        <Sector
+                          {...props}
+                          outerRadius={base ? base + 6 : props.outerRadius}
+                        />
+                      );
+                    }}
                   >
                     {data.map((_, i) => (
                       <Cell
@@ -253,21 +278,6 @@ function PieChartCard({
                   </Pie>
                 </PieChart>
               </ChartContainer>
-              {active && (
-                <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center text-center">
-                  <span className="max-w-[60%] truncate text-xs text-muted-foreground">
-                    {active.label}
-                  </span>
-                  <span className="text-lg font-semibold text-primary">
-                    {active.count}
-                  </span>
-                  {sum > 0 && (
-                    <span className="text-[10px] text-muted-foreground">
-                      {((active.count / sum) * 100).toFixed(1)}%
-                    </span>
-                  )}
-                </div>
-              )}
             </div>
           </div>
         )}

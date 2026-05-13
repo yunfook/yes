@@ -143,6 +143,7 @@ export type EmployeeRow = {
   hasTriple: boolean | null;
   hoursPerDay: number | null;
   daysPerMonth: number | null;
+  updatedAt: Date | null;
 };
 
 export async function listEmployeesByArea(areaId: number): Promise<EmployeeRow[]> {
@@ -178,6 +179,7 @@ export async function listEmployeesByArea(areaId: number): Promise<EmployeeRow[]
       hasTriple: employees.hasTriple,
       hoursPerDay: employees.hoursPerDay,
       daysPerMonth: employees.daysPerMonth,
+      updatedAt: employees.updatedAt,
     })
     .from(employees)
     .leftJoin(positions, eq(positions.id, employees.positionId))
@@ -393,6 +395,7 @@ export async function updateEmployee(
       hasTriple: data.salary?.hasTriple ?? null,
       hoursPerDay: data.salary?.hoursPerDay ?? null,
       daysPerMonth: data.salary?.daysPerMonth ?? null,
+      updatedAt: new Date(),
     })
     .where(eq(employees.id, id));
   revalidatePath("/employees");

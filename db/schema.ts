@@ -177,6 +177,7 @@ export const employees = pgTable("employees", {
   totalAnnualLeave: integer("total_annual_leave"),
   totalSickLeave: integer("total_sick_leave"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at"),
   deletedAt: timestamp("deleted_at"),
 });
 

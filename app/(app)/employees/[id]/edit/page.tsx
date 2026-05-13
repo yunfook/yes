@@ -82,6 +82,7 @@ export default async function EditEmployeePage({
       hasTriple: employees.hasTriple,
       hoursPerDay: employees.hoursPerDay,
       daysPerMonth: employees.daysPerMonth,
+      updatedAt: employees.updatedAt,
       positionId: employees.positionId,
       positionName: positionsTbl.name,
       departmentId: employees.departmentId,
@@ -188,6 +189,7 @@ export default async function EditEmployeePage({
           hasTriple: row.hasTriple,
           hoursPerDay: row.hoursPerDay,
           daysPerMonth: row.daysPerMonth,
+          updatedAt: row.updatedAt,
         }}
       />
         </CardContent>

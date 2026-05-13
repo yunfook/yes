@@ -37,6 +37,17 @@ import {
 } from "./actions";
 import { DeleteEmployeeDialog } from "./delete-employee-dialog";
 
+function isToday(value: Date | string | null): boolean {
+  if (!value) return false;
+  const d = value instanceof Date ? value : new Date(value);
+  const now = new Date();
+  return (
+    d.getFullYear() === now.getFullYear() &&
+    d.getMonth() === now.getMonth() &&
+    d.getDate() === now.getDate()
+  );
+}
+
 export function EmployeesClient({
   areaId,
   initialData,
@@ -89,12 +100,19 @@ export function EmployeesClient({
           </Button>
         ),
         cell: ({ row }) => (
-          <Link
-            href={`/employees/${row.original.id}?area=${areaId}`}
-            className="font-medium hover:underline"
-          >
-            {row.original.name}
-          </Link>
+          <div className="flex items-center gap-2">
+            <Link
+              href={`/employees/${row.original.id}?area=${areaId}`}
+              className="font-medium hover:underline"
+            >
+              {row.original.name}
+            </Link>
+            {isToday(row.original.updatedAt) && (
+              <span className="rounded-full bg-orange-500 px-1.5 py-0.5 text-[10px] font-medium leading-none text-white">
+                Updated
+              </span>
+            )}
+          </div>
         ),
       },
       {
